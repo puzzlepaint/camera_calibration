@@ -1,0 +1,61 @@
+# CMake module which defines the "StructurePrebuilt" target if the user points
+# out the location of the Structure SDK in the SCSDK_ROOT cached variable. No
+# automatic detection of the SDK install location is attempted.
+
+if(NOT SCSDK_ROOT OR SCSDK_ROOT EQUAL "SCSDK_ROOT-NOTFOUND")
+  message(STATUS "SCSDK_ROOT has not been set. If you would like to use the Structure SDK support, please set this to the root path of the Structure SDK manually.")
+  set(SCSDK_ROOT "SCSDK_ROOT-NOTFOUND" CACHE PATH "Structure SDK root directory")
+else()
+  file(TO_CMAKE_PATH ${SCSDK_ROOT} SCSDK_ROOT)
+  
+  if(NOT SCSDK_TARGET_ARCH)
+    message(WARNING "SCSDK_TARGET_ARCH is not set (build scripts will do this automatically). Assuming x86_64.")
+    set(SCSDK_TARGET_ARCH x86_64)
+  endif()
+  
+  set(SCSDK_STRUCTURE_HEADERS ${SCSDK_ROOT}/Libraries/Structure/Headers)
+  
+  if(APPLE)
+    set(SCSDK_IS_MACOS YES)
+    set(SCSDK_STRUCTURE_LIBDIR ${SCSDK_ROOT}/Libraries/Structure/macOS/${SCSDK_TARGET_ARCH})
+    set(SCSDK_STRUCTURE_LIB ${SCSDK_STRUCTURE_LIBDIR}/libStructure.dylib)
+    set(SCSDK_STRUCTURE_IMPORTLIB ${SCSDK_STRUCTURE_LIBDIR}/libStructure.dylib)
+  elseif(ANDROID)
+    set(SCSDK_IS_ANDROID YES)
+    set(SCSDK_STRUCTURE_LIBDIR ${SCSDK_ROOT}/Libraries/Structure/Android/${SCSDK_TARGET_ARCH})
+    set(SCSDK_STRUCTURE_LIB ${SCSDK_STRUCTURE_LIBDIR}/libStructure.so)
+    set(SCSDK_STRUCTURE_IMPORTLIB ${SCSDK_STRUCTURE_LIBDIR}/libStructure.so)
+  elseif(UNIX)
+    execute_process(COMMAND uname -s RESULT_VARIABLE unameResult OUTPUT_VARIABLE unameOutput)
+    string(STRIP ${unameOutput} unameOutput)
+    if(NOT unameResult STREQUAL "0")
+      message(FATAL_ERROR "Failed to run uname, unable to identify platform.")
+    elseif(NOT unameOutput STREQUAL "Linux")
+      message(FATAL_ERROR "This Unix platform is not supported. uname: ${unameOutput}")
+    endif()
+    set(SCSDK_IS_LINUX YES)
+    set(SCSDK_STRUCTURE_LIBDIR ${SCSDK_ROOT}/Libraries/Structure/Linux/${SCSDK_TARGET_ARCH})
+    set(SCSDK_STRUCTURE_LIB ${SCSDK_STRUCTURE_LIBDIR}/libStructure.so)
+    set(SCSDK_STRUCTURE_IMPORTLIB ${SCSDK_STRUCTURE_LIBDIR}/libStructure.so)
+  elseif(WIN32)
+    set(SCSDK_IS_WINDOWS YES)
+    set(SCSDK_STRUCTURE_LIBDIR ${SCSDK_ROOT}/Libraries/Structure/Windows/${SCSDK_TARGET_ARCH})
+    set(SCSDK_STRUCTURE_LIB ${SCSDK_STRUCTURE_LIBDIR}/Structure.dll)
+    set(SCSDK_STRUCTURE_IMPORTLIB ${SCSDK_STRUCTURE_LIBDIR}/Structure.lib)
+  else()
+    message(FATAL_ERROR "Unknown platform for Structure Core SDK.")
+  endif()
+  
+  if(EXISTS ${SCSDK_STRUCTURE_LIB})
+    set(Structure_FOUND TRUE)
+    if(NOT TARGET StructurePrebuilt)
+      add_library(StructurePrebuilt UNKNOWN IMPORTED)
+      set_target_properties(StructurePrebuilt PROPERTIES
+          IMPORTED_LOCATION ${SCSDK_STRUCTURE_IMPORTLIB}
+          INTERFACE_INCLUDE_DIRECTORIES ${SCSDK_STRUCTURE_HEADERS}
+      )
+    endif()
+  else()
+    set(Structure_FOUND FALSE)
+  endif()
+endif()

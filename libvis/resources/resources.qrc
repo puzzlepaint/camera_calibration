@@ -1,0 +1,11 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+  <file>copy.png</file>
+  <file>fit_contents.png</file>
+  <file>save.png</file>
+  <file>scale_1x.png</file>
+  <file>resize_to_contents.png</file>
+  <file>settings_sliders.png</file>
+  <file>zoom_and_resize_to_contents.png</file>
+</qresource>
+</RCC>

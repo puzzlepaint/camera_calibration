@@ -1,0 +1,6 @@
+*.kdev4
+.kdev_include_paths
+CMakeLists.txt.user
+build*/
+.ipynb_checkpoints
+*.pyc

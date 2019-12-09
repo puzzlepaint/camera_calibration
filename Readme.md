@@ -58,7 +58,7 @@ also notice the licenses of the included or externally used third-party componen
 
 If you use the provided code for research, please cite the paper describing the approach:
 
-Thomas Schöps, Viktor Larsson, Marc Pollefeys, Torsten Sattler, "Why Having 10,000 Parameters in Your Camera Model is Better Than Twelve", arXiv 2019.
+[Thomas Schöps, Viktor Larsson, Marc Pollefeys, Torsten Sattler, "Why Having 10,000 Parameters in Your Camera Model is Better Than Twelve", arXiv 2019.](https://arxiv.org/abs/1912.02908)
 
 
 

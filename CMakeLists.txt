@@ -56,6 +56,8 @@ if (CMAKE_CUDA_COMPILER)
   else()
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}")
   endif()
+else()
+  message(FATAL_ERROR "CMake does not find the CUDA SDK, which is required to build this application (even in case CUDA itself will not or cannot be used).")
 endif()
 
 # Cross-platform threading. See:

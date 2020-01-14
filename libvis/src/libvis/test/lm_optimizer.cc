@@ -456,7 +456,7 @@ TEST(LMOptimizer, SchurComplement) {
   estimated_feature_positions = distorted_feature_positions;
   
   optimizer.UseBlockDiagonalStructureForSchurComplement(
-      2, estimated_feature_positions.size(), false);  // TODO: Test with sparse off-diagonal storage as well
+      2, estimated_feature_positions.size(), false, false, 1, false);  // TODO: Test with sparse off-diagonal storage as well
   
   optimizer.Optimize(
       &state,
@@ -470,7 +470,7 @@ TEST(LMOptimizer, SchurComplement) {
 namespace vis {
 class LMOptimizerTestHelper {
  public:
-  LMOptimizerTestHelper(LMOptimizer<double>* optimizer)
+  LMOptimizerTestHelper(LMOptimizer<float>* optimizer)
       : optimizer(optimizer) {}
   
   // Derivation in octave / Matlab:
@@ -492,7 +492,7 @@ class LMOptimizerTestHelper {
   //    465.667
   //   -582.000
   void Test() {
-    double nan = numeric_limits<double>::quiet_NaN();
+    double nan = numeric_limits<float>::quiet_NaN();
     
     optimizer->m_use_block_diagonal_structure = true;
     optimizer->m_block_size = 2;
@@ -526,32 +526,32 @@ class LMOptimizerTestHelper {
     optimizer->m_dense_b.resize(2);
     optimizer->m_dense_b << 5, 6;
     
-    vector<Matrix<double, Eigen::Dynamic, Eigen::Dynamic>> block_diag_H_plus_I =
-        optimizer->m_block_diag_H;  // do not add anything for the test here
     optimizer->m_x.resize(6);
-    optimizer->SolveWithSchurComplement(
+    // This uses a dummy state and cost function. Those should not be used in
+    // this call, since m_on_the_fly_block_processing == false.
+    optimizer->SolveWithSchurComplementDenseOffDiag<Vec2f>(
         optimizer->m_block_size * optimizer->m_num_blocks,
         /*dense_degrees_of_freedom*/ 2,
-        block_diag_H_plus_I,
-        optimizer->m_dense_H);
+        nullptr,
+        SimpleLineFittingCostFunction());
     
-    EXPECT_NEAR(optimizer->m_x(0),   73.667, 0.001);
-    EXPECT_NEAR(optimizer->m_x(1),  171.667, 0.001);
-    EXPECT_NEAR(optimizer->m_x(2),  189.667, 0.001);
-    EXPECT_NEAR(optimizer->m_x(3), -294.333, 0.001);
-    EXPECT_NEAR(optimizer->m_x(4),  465.667, 0.001);
-    EXPECT_NEAR(optimizer->m_x(5), -582.000, 0.001);
+    EXPECT_NEAR(optimizer->m_x(0),   73.667, 0.3);
+    EXPECT_NEAR(optimizer->m_x(1),  171.667, 0.3);
+    EXPECT_NEAR(optimizer->m_x(2),  189.667, 0.3);
+    EXPECT_NEAR(optimizer->m_x(3), -294.333, 0.3);
+    EXPECT_NEAR(optimizer->m_x(4),  465.667, 0.3);
+    EXPECT_NEAR(optimizer->m_x(5), -582.000, 0.3);
   }
   
  private:
-  LMOptimizer<double>* optimizer;
+  LMOptimizer<float>* optimizer;
 };
 }
 
 /// Tests that matrix solving using the Schur complement returns the correct
 /// result vector for a randomly chosen example.
 TEST(LMOptimizer, SchurComplement2) {
-  LMOptimizer<double> optimizer;
+  LMOptimizer<float> optimizer;
   LMOptimizerTestHelper helper(&optimizer);
   helper.Test();
 }

@@ -380,6 +380,7 @@ struct PixelCornerProjector_ {
       const usize kMaxIterations = 100;
       
       bool left_calibrated_area_before = false;
+      (void) left_calibrated_area_before;
       bool converged = false;
       for (usize i = 0; i < kMaxIterations; ++i) {
         float ddxy_dxy_0_0;
@@ -446,9 +447,13 @@ struct PixelCornerProjector_ {
         // step size and thus leave the image area slightly for points that project
         // close to the border of the image.
         if (!IsInCalibratedImageArea(result.x, result.y)) {
+#ifdef __CUDA_ARCH__
           if (left_calibrated_area_before || ::isnan(result.x)) {
             return make_float2(-99999, -99999);
           }
+#else
+          LOG(FATAL) << "Must never be called.";
+#endif
           left_calibrated_area_before = true;
           
           // Clamp projection back into the calibrated area for the next step.

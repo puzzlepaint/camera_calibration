@@ -408,7 +408,7 @@ bool RefineFeatureByMatching(
   // Bad factor in affine intensity transformation?
   if (factor <= 0) {
     if (debug) {
-      LOG(WARNING) << "Corner refinement failed because of negative affine factor";
+      LOG(WARNING) << "Corner refinement failed because of negative affine factor (" << factor << ")";
     }
     return false;
   }

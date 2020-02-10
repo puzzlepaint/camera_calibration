@@ -115,7 +115,7 @@ struct PatternData {
   inline float PatternIntensityAt(const MatrixBase<Derived>& position) const {
     // Have coordinates in [-0.5, 0.5].
     Vec2f c;
-    c.x() = -1 * (position.x() - (position.x() > 0 ? 1 : -1) * static_cast<int>(std::fabs(position.x()) + 0.5f));
+    c.x() = position.x() - (position.x() > 0 ? 1 : -1) * static_cast<int>(std::fabs(position.x()) + 0.5f);
     c.y() = position.y() - (position.y() > 0 ? 1 : -1) * static_cast<int>(std::fabs(position.y()) + 0.5f);
     
     if (c.squaredNorm() < 1e-8f) {

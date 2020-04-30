@@ -104,11 +104,16 @@ struct SO3dState {
   inline SO3dState(const SO3dState& other)
       : dest_R_src(other.dest_R_src) {}
   
+  inline SO3dState& operator= (const SO3dState& other) {
+    dest_R_src = other.dest_R_src;
+    return *this;
+  }
+  
   inline int degrees_of_freedom() const {
     return SO3d::DoF;
   }
   
-  static constexpr bool is_reversible() { return true; }
+  static constexpr bool is_reversible() { return false; }
   
   template <typename Derived>
   inline void operator-=(const MatrixBase<Derived>& delta) {
@@ -159,6 +164,8 @@ struct MatchedPointsDistanceCostFunction {
 };
 
 Mat3d DeterminePointCloudRotation(const vector<Vec3d>& a, const vector<Vec3d>& b) {
+  CHECK_EQ(a.size(), b.size());
+  
   LMOptimizer<double> optimizer;
   
   SO3dState state;

@@ -269,14 +269,45 @@ int CompareReconstructions(const string& reconstruction_path_1, const string& re
     global_tr_images1[i].translation() *= centers2_s_centers1;
   }
   
+  // Determine the intrinsics rotation between the two calibrations
+  CHECK_EQ(state1.intrinsics.size(), 1);
+  CHECK_EQ(state2.intrinsics.size(), 1);
+  CameraModel* model1 = state1.intrinsics[0].get();
+  CameraModel* model2 = state2.intrinsics[0].get();
+  CHECK_EQ(model1->width(), model2->width());
+  CHECK_EQ(model1->height(), model2->height());
+  
+  constexpr int kPixelStep = 10;
+  vector<Vec3d> intrinsics1Points;
+  vector<Vec3d> intrinsics2Points;
+  
+  // NOTE: We match line directions here. Depending on the non-central camera geometry, this might make more or less sense.
+  for (int y = 0; y < model1->height(); y += kPixelStep) {
+    for (int x = 0; x < model1->width(); x += kPixelStep) {
+      Line3d line1, line2;
+      if (model1->Unproject(x + 0.5, y + 0.5, &line1) &&
+          model2->Unproject(x + 0.5, y + 0.5, &line2)) {
+        intrinsics1Points.push_back(line1.direction().normalized());
+        intrinsics2Points.push_back(line2.direction().normalized());
+      }
+    }
+  }
+  
+  // Returns a_r_b, such that ideally: a[i] = a_r_b * b[i], for all i.
+  Mat3d intrinsics1_r_intrinsics2 = DeterminePointCloudRotation(intrinsics1Points, intrinsics2Points);
+  Mat4d intrinsics1_r_intrinsics2_4x4 = Mat4d::Identity();
+  intrinsics1_r_intrinsics2_4x4.topLeftCorner<3, 3>() = intrinsics1_r_intrinsics2;
+  
+  LOG(INFO) << "intrinsics1_r_intrinsics2_4x4:\n" << intrinsics1_r_intrinsics2_4x4;
+  
   // Set the first camera poses of the two reconstructions to be the same,
   // and measure the translation difference of the last one, relative to its
   // average distance to the first camera.
   // TODO: The image indices to compare should be configurable.
   //       Right now, we always use the first and last image.
-  // X * global_tr_images2 == global_tr_images1
-  // --> X == global_tr_images1 * global_tr_images2.inverse()
-  SE3d firstimage1_tr_firstimage2 = global_tr_images1.front() * global_tr_images2.front().inverse();
+  // X * global_tr_images2[0] == global_tr_images1[0] * intrinsics1_r_intrinsics2
+  // --> X == global_tr_images1[0] * intrinsics1_r_intrinsics2 * global_tr_images2[0].inverse()
+  SE3d firstimage1_tr_firstimage2 = SE3d(global_tr_images1.front().matrix() * intrinsics1_r_intrinsics2_4x4 * global_tr_images2.front().inverse().matrix());
   
   SE3d global_tr_images2_back_aligned_to1 = firstimage1_tr_firstimage2 * global_tr_images2.back();
   
@@ -345,15 +376,17 @@ int CompareReconstructions(const string& reconstruction_path_1, const string& re
     LOG(ERROR) << "Failed to save MeshLab project to: " << meshlab_project_aligned_at_start_path;
   }
   
-  cloud_1.global_tr_mesh = centers2_tr_centers1;
-  images_1.global_tr_mesh = centers2_tr_centers1;
-  cloud_2.global_tr_mesh = Mat4f::Identity();
-  images_2.global_tr_mesh = Mat4f::Identity();
-  
-  string meshlab_project_aligned_umeyama_path = meshlab_project_path + "reconstructions_aligned_umeyama.mlp";
-  if (!WriteMeshLabProject(meshlab_project_aligned_umeyama_path, meshlab_project)) {
-    LOG(ERROR) << "Failed to save MeshLab project to: " << meshlab_project_aligned_umeyama_path;
-  }
+  // NOTE: This does only account for the camera centers, not for the point clouds, so it might
+  //       introduce large deviations and might thus be badly suited for comparison.
+  // cloud_1.global_tr_mesh = centers2_tr_centers1;
+  // images_1.global_tr_mesh = centers2_tr_centers1;
+  // cloud_2.global_tr_mesh = Mat4f::Identity();
+  // images_2.global_tr_mesh = Mat4f::Identity();
+  // 
+  // string meshlab_project_aligned_umeyama_path = meshlab_project_path + "reconstructions_aligned_umeyama.mlp";
+  // if (!WriteMeshLabProject(meshlab_project_aligned_umeyama_path, meshlab_project)) {
+  //   LOG(ERROR) << "Failed to save MeshLab project to: " << meshlab_project_aligned_umeyama_path;
+  // }
   
   return EXIT_SUCCESS;
 }

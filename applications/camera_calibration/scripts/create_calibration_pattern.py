@@ -33,7 +33,8 @@ import math
 import sys
 
 import numpy as np
-from scipy.misc import imread
+from cv2 import imread
+#from scipy.misc import imread
 
 # This requires reportlab, installed like this:
 # sudo pip3 install reportlab
@@ -84,6 +85,7 @@ if __name__ == '__main__':
   apriltag_length_in_squares = int(args.apriltag_length_in_squares)
   
   pagesize = A4
+  pagesize_r = (pagesize[0]*5,pagesize[1]*5)
   if args.paper_size == "A4":
     pagesize = A4
   elif args.paper_size == "letter":
@@ -91,9 +93,10 @@ if __name__ == '__main__':
   else:
     print("Error: The given paper size (" + args.paper_size + ") must be either A4 or letter.")
     sys.exit(1)
-  
-  pdf_path = args.output_base_path + '.pdf'
-  metadata_path = args.output_base_path + '.yaml'
+  pagesize = pagesize_r
+
+  pdf_path = args.output_base_path + 'out.pdf'
+  metadata_path = args.output_base_path + 'out.yaml'
   
   tag_path = os.path.join(args.tag36h11_path, 'tag36_11_{:0>5d}.png'.format(apriltag_index))
   

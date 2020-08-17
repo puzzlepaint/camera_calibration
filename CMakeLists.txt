@@ -371,7 +371,7 @@ target_include_directories(libvis
     ${Qt5Core_INCLUDE_DIRS}
     ${Qt5Opengl_INCLUDE_DIRS}
 )
-target_link_directories(libvis PRIVATE
+link_directories(libvis PRIVATE
   ${PCL_LIBRARY_DIRS}
 )
 # Using the static version of libpng hopefully ensures that we won't get a

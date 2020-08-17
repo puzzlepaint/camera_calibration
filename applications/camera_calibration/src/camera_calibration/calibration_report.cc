@@ -131,6 +131,7 @@ void ComputeAllReprojectionErrors(
     
     for (const PointFeature& feature : features) {
       Vec3d local_point = image_r_global * calibration.points[feature.index] + image_t_global;
+      // LOG(1) << "project local_point: " << local_point;
       Vec2d pixel;
       if (cam->Project(local_point, &pixel)) {
         ++ *reprojection_error_count;

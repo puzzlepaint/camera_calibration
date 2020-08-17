@@ -30,6 +30,7 @@
 // example. It runs several functions that act as unit tests.
 
 #include <iostream>
+#include <time.h>
 
 #include "central_generic.h"
 #include "noncentral_generic.h"
@@ -55,30 +56,42 @@ bool TestCentralGenericCameraReprojection() {
   // Verify that un-projecting a pixel and projecting the result again returns
   // the original pixel coordinate.
   int step = 10;
+  // int count = 0;
   for (int y = 0; y < camera.height(); y += step) {
     for (int x = 0; x < camera.width(); x += step) {
       // Note that 0.5 has to be added to x and y to get the center of the pixel.
       Eigen::Vector2d pixel(x + 0.5, y + 0.5);
       
       Eigen::Vector3d direction;
+      // timespec t1;
+      // clock_gettime(CLOCK_REALTIME,&t1);
       if (!camera.Unproject(pixel, &direction)) {
         std::cout << "Unprojection failed! Pixel: (" << pixel.transpose() << ")" << std::endl;
         return false;
       }
-      
+      // timespec t2;
+      // clock_gettime(CLOCK_REALTIME,&t2);
+      // std::cout << "single unproject cost: " << (t2.tv_nsec - t1.tv_nsec) / 1e6 << std::endl;
+
       Eigen::Vector2d reprojected_pixel;
       if (!camera.Project(direction, &reprojected_pixel)) {
         std::cout << "Reprojection failed! Pixel: (" << pixel.transpose() << "), Direction: (" << direction.transpose() << ")" << std::endl;
         return false;
       }
+      // timespec t3;
+      // clock_gettime(CLOCK_REALTIME,&t3);
+      // std::cout << "single project cost: " << (t3.tv_nsec - t2.tv_nsec) / 1e6 << std::endl;
+
       
       if ((pixel - reprojected_pixel).norm() > 1e-3) {
         std::cout << "Reprojection gave an incorrect result! Pixel: (" << pixel.transpose() << "), Reprojected pixel: (" << reprojected_pixel.transpose() << ")" << std::endl;
         return false;
       }
+      // count = count + 1;
     }
   }
-  
+  // std::cout << "point count: " << count << std::endl;
+
   return true;
 }
 
@@ -109,7 +122,9 @@ grid : [-0.53894559551046, -0.44771088301023, 0.71350726016914, -0.5074642215575
   // Load the camera from the file and remove the temporary file again
   CentralGenericCamera<double> camera;
   std::string error_reason;
+  clock_t  t1 = clock();
   bool result = camera.Read(file_path, &error_reason);
+  std::cout << "read cost: " << (clock() - t1) * 1.0 / CLOCKS_PER_SEC * 1000 << std::endl;
   remove(file_path);
   if (!result) {
     std::cout << "Reading the camera failed! Reason: " << error_reason << std::endl;
@@ -251,8 +266,13 @@ int main(int /*argc*/, char** /*argv*/) {
   bool result;
   
   // Test CentralGenericCamera
+  timespec t_0;
+  timespec t_1;
+  clock_gettime(CLOCK_REALTIME,&t_0);
   result = TestCentralGenericCameraReprojection();
+  clock_gettime(CLOCK_REALTIME,&t_1);
   std::cout << "TestCentralGenericCameraReprojection: " << (result ? "success" : "failure") << std::endl;
+  std::cout << "project cost: " << (t_1.tv_nsec - t_0.tv_nsec) / 1e6 << std::endl;
   
   result = TestCentralGenericCameraRead();
   std::cout << "TestCentralGenericCameraRead: " << (result ? "success" : "failure") << std::endl;

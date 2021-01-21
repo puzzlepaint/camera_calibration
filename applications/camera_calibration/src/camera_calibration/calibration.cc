@@ -104,7 +104,7 @@ void DeleteOutlierFeatures(
   double first_quartile_error = reprojection_errors[0.25f * reprojection_errors.size() + 0.5f];
   double third_quartile_error = reprojection_errors[0.75f * reprojection_errors.size() + 0.5f];
   // 1.5 is what matplotlib uses by default for outliers in box plots
-  double outlier_threshold = (third_quartile_error + outlier_removal_factor * (third_quartile_error - first_quartile_error))*0.8;
+  double outlier_threshold = (third_quartile_error + outlier_removal_factor * (third_quartile_error - first_quartile_error))*0.5;
   
   Image<Vec3u8> outlier_visualization(state->intrinsics[camera_index]->width(), state->intrinsics[camera_index]->height());
   outlier_visualization.SetTo(Vec3u8::Zero());

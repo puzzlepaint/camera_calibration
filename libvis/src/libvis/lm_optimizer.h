@@ -840,12 +840,12 @@ class LMOptimizer {
             int diagonal_index = 0;
             for (usize i = 0; i < m_block_diag_H.size(); ++ i) {
               for (int k = 0; k < m_block_diag_H[i].rows(); ++ k) {
-                m_block_diag_H[i](k, k) = m_original_diagonal[diagonal_index] + m_lambda;
+                m_block_diag_H[i](k, k) = m_apply_lambda_on_diag ? ((1 + m_lambda) * m_original_diagonal[diagonal_index]) : (m_original_diagonal[diagonal_index] + m_lambda);
                 ++ diagonal_index;
               }
             }
             for (int i = 0; i < dense_degrees_of_freedom; ++ i) {
-              m_dense_H(i, i) = m_original_diagonal[diagonal_index] + m_lambda;
+              m_dense_H(i, i) = m_apply_lambda_on_diag ? ((1 + m_lambda) * m_original_diagonal[diagonal_index]) : (m_original_diagonal[diagonal_index] + m_lambda);
               ++ diagonal_index;
             }
             CHECK_EQ(diagonal_index, degrees_of_freedom);
@@ -1550,6 +1550,9 @@ class LMOptimizer {
   
   /// Whether to use a block-diagonal structure for the Schur complement.
   bool m_use_block_diagonal_structure = false;
+
+
+  bool m_apply_lambda_on_diag = true;
   
   /// Block size within block-diagonal part at the top-left of the Hessian.
   int m_block_size = 0;
@@ -1586,7 +1589,7 @@ class LMOptimizer {
   bool m_use_complete_orthogonal_decomposition = false;
   
   /// The last value of lambda used in Levenberg-Marquardt.
-  Scalar m_lambda = -1;
+  Scalar m_lambda = 0.00005;
   
   /// Original diagonal values of H before adding lambda. This is used in case
   /// lambda is updated to compute the updated diagonal values quickly and with

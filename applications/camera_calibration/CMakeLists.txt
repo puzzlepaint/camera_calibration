@@ -162,11 +162,15 @@ if (CMAKE_CUDA_COMPILER)
     src
     ${CERES_INCLUDE_DIRS}
     third_party/apriltag
-    third_party/cub-1.8.0
     third_party/yaml-cpp-0.6.0/include
     ${realsense_INCLUDE_DIR}
     ${OpenCV_INCLUDE_DIRS}
   )
+  if (CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 11)
+    target_include_directories(camera_calibration_baselib PRIVATE
+      third_party/cub-1.8.0
+    )
+  endif()
   target_link_libraries(camera_calibration_baselib PUBLIC
     libvis
     libvis_cuda

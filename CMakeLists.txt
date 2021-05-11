@@ -43,6 +43,9 @@ if (CMAKE_CUDA_COMPILER)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
   endif()
   
+  # Find CUDA libraries (in particular: cublas)
+  find_package(CUDAToolkit REQUIRED)
+  
   # It is very important that CUDA's nvcc uses exactly the same gcc version and
   # flags as is used for other C++ code. Otherwise, it can happen that classes
   # have different layouts as seen by code compiled by nvcc's gcc and by the
@@ -490,7 +493,7 @@ if (CMAKE_CUDA_COMPILER)
     gtest_main
     Threads::Threads
     libvis_cuda
-    cublas  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
+    CUDA::cublas  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
   )
   target_include_directories(libvis_cuda_test PRIVATE
     ${gtest_SOURCE_DIR}/include
@@ -531,7 +534,7 @@ target_link_libraries(libvis_test PRIVATE
   gtest
   Threads::Threads
   libvis
-  cublas  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
+  CUDA::cublas  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
 )
 target_include_directories(libvis_test PRIVATE
   ${gtest_SOURCE_DIR}/include

@@ -818,7 +818,7 @@ void FeatureDetectorTaggedPattern::PredictFeaturesNextToAprilTags(
       }
     }
     if (pattern_array_index < 0) {
-      LOG(WARNING) << "Detected an AprilTag that does not belong to a known pattern.";
+      LOG(WARNING) << "Detected AprilTag " << tag_detection->id << " which does not belong to a known pattern.";
       continue;
     }
     

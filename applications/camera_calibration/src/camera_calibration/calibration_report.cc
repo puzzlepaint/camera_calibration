@@ -221,14 +221,19 @@ double ComputeBiasedness(
   constexpr double kBiasProbabilityHalfExtent = 2.5;
   constexpr int kBiasCellMinNumFeatures = 5;  // Must be at least 2. This discards cells with very few samples to reduce the influence of their very noisy results.
   constexpr int kBiasCellCount = 50;  // 50 x 50 cells within the calibrated area
+  
+  constexpr double margin = 1e-7;
+  const double step_u = (double)(cam->calibration_max_x() - cam->calibration_min_x()) / kBiasCellCount + margin;
+  const double step_v = (double)(cam->calibration_max_y() - cam->calibration_min_y()) / kBiasCellCount + margin;
+  
   Image<SinglePassMeanAndVariance<double>> bias_statistics(kBiasCellCount, kBiasCellCount);
   
   for (usize i = 0; i < reprojection_errors.size(); ++ i) {
     const Vec2d& reprojection_error = reprojection_errors[i];
     const Vec2f& feature = features[i];
     
-    int bias_cell_x = std::min<int>(bias_statistics.width() - 1, std::max<int>(0, (feature.x() - cam->calibration_min_x()) / kBiasCellCount));
-    int bias_cell_y = std::min<int>(bias_statistics.height() - 1, std::max<int>(0, (feature.y() - cam->calibration_min_y()) / kBiasCellCount));
+    int bias_cell_x = std::min<int>(bias_statistics.width() - 1, std::max<int>(0, (feature.x() - cam->calibration_min_x()) / step_u));
+    int bias_cell_y = std::min<int>(bias_statistics.height() - 1, std::max<int>(0, (feature.y() - cam->calibration_min_y()) / step_v));
     bias_statistics(bias_cell_x, bias_cell_y).AddData(reprojection_error.norm());
   }
   
@@ -269,8 +274,8 @@ double ComputeBiasedness(
     const Vec2d& reprojection_error = reprojection_errors[i];
     const Vec2f& feature = features[i];
     
-    int bias_cell_x = std::min<int>(bias_statistics.width() - 1, std::max<int>(0, (feature.x() - cam->calibration_min_x()) / kBiasCellCount));
-    int bias_cell_y = std::min<int>(bias_statistics.height() - 1, std::max<int>(0, (feature.y() - cam->calibration_min_y()) / kBiasCellCount));
+    int bias_cell_x = std::min<int>(bias_statistics.width() - 1, std::max<int>(0, (feature.x() - cam->calibration_min_x()) / step_u));
+    int bias_cell_y = std::min<int>(bias_statistics.height() - 1, std::max<int>(0, (feature.y() - cam->calibration_min_y()) / step_v));
     
     auto& bias_cell = bias_statistics(bias_cell_x, bias_cell_y);
     if (bias_cell.count() < kBiasCellMinNumFeatures) {

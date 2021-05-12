@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.6...3.14)
 project(libvis LANGUAGES C CXX)
 
 
-# Enable C++11 globally
-set(CMAKE_CXX_STANDARD 11)
+# Enable C++14 globally
+set(CMAKE_CXX_STANDARD 14)
 
 # Support IDEs: https://cliutils.gitlab.io/modern-cmake/chapters/features/ides.html
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -37,11 +37,14 @@ check_language(CUDA)
 if (CMAKE_CUDA_COMPILER)
   enable_language(CUDA)
   
-  # Enable C++11 globally for CUDA code
+  # Enable C++14 globally for CUDA code
   if(NOT DEFINED CMAKE_CUDA_STANDARD)
-    set(CMAKE_CUDA_STANDARD 11)
+    set(CMAKE_CUDA_STANDARD 14)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
   endif()
+  
+  # Find CUDA libraries (in particular: cublas)
+  find_package(CUDAToolkit REQUIRED)
   
   # It is very important that CUDA's nvcc uses exactly the same gcc version and
   # flags as is used for other C++ code. Otherwise, it can happen that classes
@@ -490,7 +493,7 @@ if (CMAKE_CUDA_COMPILER)
     gtest_main
     Threads::Threads
     libvis_cuda
-    cublas  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
+    CUDA::cublas  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
   )
   target_include_directories(libvis_cuda_test PRIVATE
     ${gtest_SOURCE_DIR}/include
@@ -531,7 +534,7 @@ target_link_libraries(libvis_test PRIVATE
   gtest
   Threads::Threads
   libvis
-  cublas  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
+  CUDA::cublas  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
 )
 target_include_directories(libvis_test PRIVATE
   ${gtest_SOURCE_DIR}/include

@@ -33,8 +33,9 @@ import math
 import sys
 
 import numpy as np
-from cv2 import imread
-#from scipy.misc import imread
+
+# This requires Matplotlib
+from matplotlib.pyplot import imread
 
 # This requires reportlab, installed like this:
 # sudo pip3 install reportlab
@@ -63,7 +64,7 @@ if __name__ == '__main__':
   parser.add_argument("--output_base_path", required=True,
                       help="Base path to the PDF and YAML output files (excluding the file extensions).")
   parser.add_argument("--paper_size", default="A4",
-                      help="Paper size; supported values: A4, letter.")
+                      help="Paper size; supported values: A4, letter, or <width>x<height> with the dimensions in centimeters, for example: 20.5x40")
   parser.add_argument("--num_star_segments", default="16",
                       help="Number of segments of each star in the pattern. Refers to the sum of black and white segments. 4 would give a checkerboard.")
   parser.add_argument("--apriltag_index", default="0",
@@ -90,6 +91,11 @@ if __name__ == '__main__':
     pagesize = A4
   elif args.paper_size == "letter":
     pagesize = letter
+  elif 'x' in args.paper_size:
+    width, height = args.paper_size.split('x')
+    width = float(width) * cm
+    height = float(height) * cm
+    pagesize = (width, height)
   else:
     print("Error: The given paper size (" + args.paper_size + ") must be either A4 or letter.")
     sys.exit(1)
@@ -160,7 +166,7 @@ if __name__ == '__main__':
   tag_square_length = apriltag_length_in_squares * square_length / tag_width
   for x in range(0, tag_width):
     for y in range(0, tag_height):
-      if im[y][x][0] < 127:
+      if im[y][x][0] == 0:
         c.rect(tag_start_x + x * tag_square_length,
                 tag_start_y - y * tag_square_length - tag_square_length,
                 tag_square_length,

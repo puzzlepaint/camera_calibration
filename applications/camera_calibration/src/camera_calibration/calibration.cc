@@ -559,11 +559,21 @@ void ComputeGridResolution(
 }
 
 
+/// Given the grid resolution on the full-sized level 0, computes the grid
+/// resolution for a smaller pyramid level.
+// TODO: What is a good upsampling factor?
+void CalcGridResolutionForLevel(int pyramid_level, int full_resolution_x, int full_resolution_y, int* x, int* y) {
+  *x = static_cast<int>(full_resolution_x * pow(1.333, -pyramid_level) + 0.5f);
+  *y = static_cast<int>(full_resolution_y * pow(1.333, -pyramid_level) + 0.5f);
+};
+
+
 void ResampleModelsIfNecessary(
     Dataset* dataset,
     BAState* state,
     CameraModel::Type model_type,
-    int approx_pixels_per_cell) {
+    int approx_pixels_per_cell,
+    int pyramid_level) {
   for (int camera_index = 0; camera_index < dataset->num_cameras(); ++ camera_index) {
     shared_ptr<CameraModel>& model = state->intrinsics[camera_index];
     
@@ -573,13 +583,17 @@ void ResampleModelsIfNecessary(
       LOG(INFO) << "Grid resolution loaded from file: " << loaded_grid_resolution_x << " x " << loaded_grid_resolution_y;
     }
     
-    int desired_grid_resolution_x, desired_grid_resolution_y;
+    int desired_full_grid_resolution_x, desired_full_grid_resolution_y;
     ComputeGridResolution(
         *model,
         approx_pixels_per_cell,
-        &desired_grid_resolution_x,
-        &desired_grid_resolution_y);
-    LOG(INFO) << "Choosing grid resolution: " << desired_grid_resolution_x << " x " << desired_grid_resolution_y;
+        &desired_full_grid_resolution_x,
+        &desired_full_grid_resolution_y);
+    LOG(INFO) << "Choosing grid resolution (for highest pyramid level): " << desired_full_grid_resolution_x << " x " << desired_full_grid_resolution_y;
+    
+    int desired_grid_resolution_x;
+    int desired_grid_resolution_y;
+    CalcGridResolutionForLevel(pyramid_level, desired_full_grid_resolution_x, desired_full_grid_resolution_y, &desired_grid_resolution_x, &desired_grid_resolution_y);
     
     // Re-sample in case the loaded grid resolution differs from the desired one,
     // or the loaded model type differs from the desired one.
@@ -596,15 +610,6 @@ void ResampleModelsIfNecessary(
     }
   }
 }
-
-
-/// Given the grid resolution on the full-sized level 0, computes the grid
-/// resolution for a smaller pyramid level.
-// TODO: What is a good upsampling factor?
-void CalcGridResolutionForLevel(int pyramid_level, int full_resolution_x, int full_resolution_y, int* x, int* y) {
-  *x = static_cast<int>(full_resolution_x * pow(1.333, -pyramid_level) + 0.5f);
-  *y = static_cast<int>(full_resolution_y * pow(1.333, -pyramid_level) + 0.5f);
-};
 
 
 void ComputeIntegerBoundingRectForFeatures(
@@ -991,7 +996,7 @@ bool Calibrate(
     
     // Do the loaded models need to be resampled?
     if (!localize_only) {
-      ResampleModelsIfNecessary(dataset, state, model_type, approx_pixels_per_cell);
+      ResampleModelsIfNecessary(dataset, state, model_type, approx_pixels_per_cell, num_pyramid_levels - 1);
     }
     
     if (localize_only) {

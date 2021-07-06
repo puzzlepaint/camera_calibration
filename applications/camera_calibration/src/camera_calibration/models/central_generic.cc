@@ -28,12 +28,17 @@
 
 #include "camera_calibration/models/central_generic.h"
 
+#ifdef LIBVIS_HAVE_CUDA
 #include <cuda_runtime.h>
 #include <libvis/cuda/cuda_buffer.h>
+#endif
 #include <libvis/lm_optimizer.h>
 
 #include "camera_calibration/local_parametrizations/direction_parametrization.h"
+
+#ifdef LIBVIS_HAVE_CUDA
 #include "camera_calibration/models/cuda_central_generic_model.cuh"
+#endif
 
 // Include Jacobians implementation
 #include "camera_calibration/models/central_generic_jacobians.cc"

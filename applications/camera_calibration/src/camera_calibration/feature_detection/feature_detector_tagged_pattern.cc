@@ -32,10 +32,17 @@
 #include <unordered_set>
 
 #include <apriltag.h>
+
+#ifdef LIBVIS_HAVE_CUDA
 #include <cuda_runtime.h>
 #include <cub/util_type.cuh>
+#endif
+
 #include <libvis/dlt.h>
+#ifdef LIBVIS_HAVE_CUDA
 #include <libvis/cuda/cuda_buffer.h>
+#endif
+
 #include <libvis/image_display.h>
 #include <libvis/timing.h>
 #include <tag36h11.h>
@@ -43,9 +50,11 @@
 
 #include "camera_calibration/feature_detection/cpu_refinement_by_matching.h"
 #include "camera_calibration/feature_detection/cpu_refinement_by_symmetry.h"
+#ifdef LIBVIS_HAVE_CUDA
 #include "camera_calibration/feature_detection/cuda_refinement_by_matching.h"
 #include "camera_calibration/feature_detection/cuda_refinement_by_symmetry.h"
 #include "camera_calibration/feature_detection/cuda_util.cuh"
+#endif
 #include "camera_calibration/hash_vec2i.h"
 
 

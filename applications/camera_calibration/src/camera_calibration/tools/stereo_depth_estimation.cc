@@ -29,7 +29,9 @@
 #include "camera_calibration/tools/tools.h"
 
 #include <boost/filesystem.hpp>
+#ifdef LIBVIS_HAVE_CUDA
 #include <libvis/cuda/patch_match_stereo.h>
+#endif
 #include <libvis/point_cloud.h>
 #include <libvis/render_display.h>
 #include <QApplication>
@@ -39,8 +41,10 @@
 #include "camera_calibration/io/calibration_io.h"
 #include "camera_calibration/models/central_generic.h"
 #include "camera_calibration/models/central_thin_prism_fisheye.h"
+#ifdef LIBVIS_HAVE_CUDA
 #include "camera_calibration/models/cuda_camera_model.cuh"
 #include "camera_calibration/models/cuda_central_generic_model.cuh"
+#endif
 
 namespace vis {
 

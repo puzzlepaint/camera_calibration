@@ -28,7 +28,7 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
+#include "../cuda_shims.h"
 
 #include <libvis/libvis.h>
 

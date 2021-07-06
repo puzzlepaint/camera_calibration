@@ -28,8 +28,8 @@
 
 #include "camera_calibration/models/central_generic.h"
 
+#include "../cuda_shims.h"
 #ifdef LIBVIS_HAVE_CUDA
-#include <cuda_runtime.h>
 #include <libvis/cuda/cuda_buffer.h>
 #endif
 #include <libvis/lm_optimizer.h>
@@ -626,6 +626,7 @@ Mat3d CentralGenericModel::ChooseNiceCameraOrientation() {
 }
 
 CUDACameraModel* CentralGenericModel::CreateCUDACameraModel() {
+#ifdef LIBVIS_HAVE_CUDA
   CUDACentralGenericModel* result = new CUDACentralGenericModel();
   
   result->m_width = m_width;
@@ -649,6 +650,9 @@ CUDACameraModel* CentralGenericModel::CreateCUDACameraModel() {
   result->m_grid = m_cuda_grid->ToCUDA();
   
   return result;
+#else
+  return nullptr;
+#endif
 }
 
 }

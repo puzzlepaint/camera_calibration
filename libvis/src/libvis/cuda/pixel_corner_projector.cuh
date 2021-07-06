@@ -29,10 +29,12 @@
 
 #pragma once
 
+#ifdef LIBVIS_HAVE_CUDA
 #include <cuda_runtime.h>
 #include <math_constants.h>
-
 #include "libvis/cuda/cuda_buffer.cuh"
+#endif
+
 #include "libvis/logging.h"
 
 namespace vis {
@@ -49,8 +51,10 @@ struct PixelCornerProjector_ {
         min_ny(other.min_ny),
         max_nx(other.max_nx),
         max_ny(other.max_ny),
+#ifdef LIBVIS_HAVE_CUDA
         grid2(other.grid2),
         grid3(other.grid3),
+#endif
         omega(other.omega),
         two_tan_omega_half(other.two_tan_omega_half),
         fx(other.fx), fy(other.fy), cx(other.cx), cy(other.cy),
@@ -517,9 +521,11 @@ struct PixelCornerProjector_ {
   float max_nx;
   float max_ny;
   
+#ifdef LIBVIS_HAVE_CUDA
   CUDABuffer_<float2> grid2;
   CUDABuffer_<float3> grid3;
-  
+#endif
+
   float omega;
   float two_tan_omega_half;
   float fx, fy, cx, cy;

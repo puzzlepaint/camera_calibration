@@ -29,9 +29,8 @@
 #include "camera_calibration/tools/tools.h"
 
 #include <boost/filesystem.hpp>
-#ifdef LIBVIS_HAVE_CUDA
+#include "../cuda_shims.h"
 #include <libvis/cuda/patch_match_stereo.h>
-#endif
 #include <libvis/point_cloud.h>
 #include <libvis/render_display.h>
 #include <QApplication>

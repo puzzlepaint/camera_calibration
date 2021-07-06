@@ -29,10 +29,12 @@
 
 #pragma once
 
+#ifdef LIBVIS_HAVE_CUDA
 #include <curand_kernel.h>
 
 #include "libvis/cuda/cuda_buffer.h"
 #include "libvis/cuda/cuda_unprojection_lookup.h"
+#endif
 #include "libvis/cuda/pixel_corner_projector.h"
 #include "libvis/image.h"
 #include "libvis/libvis.h"

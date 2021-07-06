@@ -477,6 +477,7 @@ if (CMAKE_CUDA_COMPILER)
   )
   target_link_libraries(libvis_cuda PUBLIC
     libvis
+    CUDA::cublas
   )
   target_compile_options(libvis_cuda PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:-use_fast_math>
@@ -497,14 +498,12 @@ if (CMAKE_CUDA_COMPILER)
     gtest_main
     Threads::Threads
     libvis_cuda
-    CUDA::cublas  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
   )
   target_include_directories(libvis_cuda_test PRIVATE
     ${gtest_SOURCE_DIR}/include
     #${gtest_SOURCE_DIR}
     ${OpenCV_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
-    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
   )
   add_test(libvis_cuda_test
     libvis_cuda_test
@@ -539,14 +538,6 @@ target_link_libraries(libvis_test PRIVATE
   Threads::Threads
   libvis 
 )
-if(CMAKE_CUDA_COMPILER)
-  target_link_libraries(libvis_test PRIVATE
-    CUDA::cublas # TODO: currently required because of lm_optimizer.h. That should not be necessary.
-  )
-  target_include_directories(libvis_test PRIVATE
-    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
-  )
-endif()
 target_include_directories(libvis_test PRIVATE
   ${gtest_SOURCE_DIR}/include
   #${gtest_SOURCE_DIR}

@@ -31,10 +31,12 @@
 
 #include <fstream>
 
+#ifdef LIBVIS_HAVE_CUDA
 // Only required for optional matrix multiplication on the GPU:
 #include <cublasXt.h>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
+#endif
 
 #include <Eigen/Sparse>
 
@@ -1322,9 +1324,12 @@ class LMOptimizer {
       Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> B_T_D_inv_B;
       B_T_D_inv_B.resize(m_dense_H.rows(), m_dense_H.cols());
       
+#ifdef LIBVIS_HAVE_CUDA
       if (m_compute_schur_complement_with_cuda) {
         MultiplyMatricesWithCuBLAS(D_inv_B, &B_T_D_inv_B);
-      } else {
+      } else 
+#endif // LIBVIS_HAVE_CUDA
+      {
         B_T_D_inv_B.template triangularView<Eigen::Upper>() = m_off_diag_H.transpose() * D_inv_B;
       }
       
@@ -1368,6 +1373,7 @@ class LMOptimizer {
     }
   }
   
+#ifdef LIBVIS_HAVE_CUDA
   void MultiplyMatricesWithCuBLAS(
       const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>& D_inv_B,
       Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>* B_T_D_inv_B) {
@@ -1428,6 +1434,7 @@ class LMOptimizer {
       *B_T_D_inv_B = result.cast<Scalar>();
     }
   }
+#endif // LIBVIS_HAVE_CUDA
   
   // void SolveWithCuSolver(
   //     int dense_degrees_of_freedom,

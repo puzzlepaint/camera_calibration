@@ -30,7 +30,10 @@
 
 #ifdef LIBVIS_HAVE_CUDA
 #include <cuda_runtime.h>
+#define USE_CUDA_DEFAULT true
+
 #else
+#define USE_CUDA_DEFAULT false
 
 #ifndef __host__
 #define __host__

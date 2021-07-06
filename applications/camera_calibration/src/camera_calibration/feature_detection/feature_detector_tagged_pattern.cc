@@ -33,8 +33,8 @@
 
 #include <apriltag.h>
 
+#include "../cuda_shims.h"
 #ifdef LIBVIS_HAVE_CUDA
-#include <cuda_runtime.h>
 #include <cub/util_type.cuh>
 #endif
 
@@ -58,6 +58,12 @@
 #include "camera_calibration/hash_vec2i.h"
 
 
+#ifdef LIBVIS_HAVE_CUDA
+#define USE_CUDA_DEFAULT true
+#else
+#define USE_CUDA_DEFAULT false
+#endif
+
 namespace vis {
 
 /// Attributes belonging to FeatureDetectorTaggedPattern that shall not be part
@@ -66,14 +72,19 @@ struct FeatureDetectorTaggedPatternPrivate {
   FeatureDetectorTaggedPatternPrivate() = default;
   
   ~FeatureDetectorTaggedPatternPrivate() {
+
+#ifdef LIBVIS_HAVE_CUDA
     if (cuda_objects_initialized) {
       cudaDestroyTextureObject(image_texture);
       cudaDestroyTextureObject(gradient_image_texture);
       cudaFree(cost_buffer);
     }
+#endif
   }
   
-  bool use_cuda = true;
+  bool use_cuda = USE_CUDA_DEFAULT;
+
+#ifdef LIBVIS_HAVE_CUDA
   bool cuda_objects_initialized = false;
   
   CUDABufferPtr<u8> cuda_image;
@@ -89,10 +100,14 @@ struct FeatureDetectorTaggedPatternPrivate {
   CUDABufferPtr<float4> state_buffer;
   CUDABufferPtr<float> rendered_samples;
   CUDABufferPtr<float> local_pattern_tr_pixel_buffer;
-  
+#endif
+
   vector<Vec2f> samples;  // homogeneously distributed in [-1, 1] x [-1, 1].
+
+#ifdef LIBVIS_HAVE_CUDA
   CUDABufferPtr<float2> samples_gpu;
   CUDABufferPtr<float2> pattern_samples_gpu;
+#endif
   
   /// Attention, the index of the object in this vector may be different from
   /// its pattern_index. Only the latter is relevant.
@@ -257,9 +272,11 @@ void FeatureDetectorTaggedPattern::DetectFeatures(
   }
   
   // Prepare CUDA resources.
+#ifdef LIBVIS_HAVE_CUDA
   if (d->use_cuda) {
     PrepareCUDAResources(image.width(), image.height());
   }
+#endif
   
   // Prepare AprilTag detector.
   PrepareAprilTagDetector();
@@ -271,10 +288,13 @@ void FeatureDetectorTaggedPattern::DetectFeatures(
   // Compute gradient image on CPU or GPU.
   Image<Vec2f> gradient_image;
   Image<float> gradmag_image;
+#ifdef LIBVIS_HAVE_CUDA
   if (d->use_cuda) {
     d->cuda_image->UploadAsync(/*stream*/ 0, gray_image);
     ComputeGradientImageCUDA(d->cuda_image->ToCUDA(), gray_image.width(), gray_image.height(), &d->cuda_gradient_image->ToCUDA());
-  } else {
+  } else 
+#endif
+  {
     gradient_image.SetSize(gray_image.size());
     gradmag_image.SetSize(gray_image.size());
     int width = gray_image.width();
@@ -1370,6 +1390,7 @@ void FeatureDetectorTaggedPattern::PredictAndDetectFeatures(
   }  // while (num_predictions > 0)
 }
 
+#ifdef LIBVIS_HAVE_CUDA
 void FeatureDetectorTaggedPattern::PrepareCUDAResources(int image_width, int image_height) {
   if (!d->cuda_image ||
       d->cuda_image->width() < image_width ||
@@ -1426,6 +1447,7 @@ void FeatureDetectorTaggedPattern::PrepareCUDAResources(int image_width, int ima
   
   d->cuda_objects_initialized = true;
 }
+#endif
 
 void FeatureDetectorTaggedPattern::PrepareAprilTagDetector() {
   if (!d->apriltag_detector) {
@@ -1493,6 +1515,8 @@ void FeatureDetectorTaggedPattern::RefineFeatureDetections(
   
   const int num_intensity_samples = (1 / 8.) * d->samples.size();
   const int num_gradient_samples = d->samples.size();
+
+#ifdef LIBVIS_HAVE_CUDA
   if (d->use_cuda) {
     if (refinement_type != FeatureRefinement::GradientsXY && refinement_type != FeatureRefinement::Intensities) {
       LOG(FATAL) << "CUDA-based feature refinement only supports the gradients_xy and intensities refinement types.";
@@ -1540,7 +1564,9 @@ void FeatureDetectorTaggedPattern::RefineFeatureDetections(
         this_output = filtered_detections[i];
       }
     }
-  } else {
+  } else
+#endif
+  {
     for (usize i = 0; i < filtered_predictions.size(); ++ i) {
       FeatureDetection& this_output = output[filtered_to_original_index[i]];
       

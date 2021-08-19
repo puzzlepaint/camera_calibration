@@ -35,6 +35,7 @@
   #include <opencv2/core/core.hpp>
 #endif
 
+#include <fstream>
 #include "libvis/logging.h"
 
 #include "libvis/eigen.h"
@@ -1768,6 +1769,10 @@ template<>
 bool Image<Vec3u8>::Write(const string& image_file_name) const;
 template<>
 bool Image<Vec4u8>::Write(const string& image_file_name) const;
+template<>
+bool Image<float>::Write(const string& image_file_name) const;
+template<>
+bool Image<Vec2f>::Write(const string& image_file_name) const;
 template<>
 bool Image<u8>::Read(const string& image_file_name);
 template<>

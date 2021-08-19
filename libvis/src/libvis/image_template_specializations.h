@@ -41,6 +41,66 @@ bool Image<Vec4u8>::Write(const string& image_file_name) const {
 }
 
 template<>
+bool Image<float>::Write(const string& image_file_name) const {
+  std::ofstream out(image_file_name + ".data");
+  if (!out.good()) {
+    return false;
+  }
+  for(int xx = 0; xx < width(); ++xx) {
+    for (int yy = 0; yy < height(); ++yy) {
+      out << xx << "\t" << yy << "\t" << operator()(xx,yy) << std::endl;
+      if (!out.good()) {
+        return false;
+      }
+    }
+    out << std::endl;
+  }
+  std::ofstream gnuplot(image_file_name + ".gpl");
+  gnuplot << "set term svg enhanced background rgb 'white';\n"
+          << "set output '" << image_file_name << ".svg';\n"
+          << "set view equal xy;\n"
+          << "set xrange [0:" << width() << "];\n"
+          << "set yrange [0:" << height() << "];\n"
+          << "set xtics out;\n"
+          << "set ytics out;\n"
+          << "set title 'Reprojection error magnitude [px]';\n"
+          << "plot '" << image_file_name << ".data' with image notitle;\n";
+
+  return true;
+}
+
+template<>
+bool Image<Vec2f>::Write(const string& image_file_name) const {
+  std::ofstream out(image_file_name, std::ofstream::binary);
+  if (!out.good())
+      return false;
+
+  int const width = this->height();
+  int const height = this->width();
+
+  out.write("PIEH", 4);
+  out.write(reinterpret_cast<const char*>(&height), sizeof(height));
+  out.write(reinterpret_cast<const char*>(&width), sizeof(width));
+  if (!out.good())
+      return false;
+
+  for (int row = 0; row < width; row++ ) {
+    for (int col = 0; col < height; ++col) {
+      float const x = operator()(col, row).x();
+      float const y = operator()(col, row).y();
+      out.write(reinterpret_cast<const char*>(&x), sizeof x);
+      out.write(reinterpret_cast<const char*>(&y), sizeof y);
+      if (!out.good()) {
+        return false;
+      }
+    }
+  }
+  out.close();
+  return true;
+}
+
+
+template<>
 bool Image<u8>::Read(const string& image_file_name) {
   ImageIO* io = ImageIORegistry::Instance()->Get(image_file_name);
   if (!io) {

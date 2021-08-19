@@ -48,11 +48,20 @@ int CreateCalibrationReport(
     const Dataset& dataset,
     const BAState& calibration,
     const string& report_base_path);
+
 bool CreateCalibrationReportForCamera(
     const char* base_path,
     int camera_index,
     const Dataset& dataset,
     const BAState& calibration);
+
+bool CreateCalibrationReportForData(
+    const char* base_path,
+    int camera_index,
+    const int width,
+    const int height,
+    vector<Vec2d> const& reprojection_errors,
+    vector<Vec2f> const& features);
 
 void CreateReprojectionErrorHistogram(
     int camera_index,

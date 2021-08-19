@@ -50,6 +50,9 @@ bool SaveDataset(
     const char* path,
     const Dataset& dataset);
 
+bool SaveDatasetAndState(const char* path, const Dataset& dataset, const BAState& state);
+
+
 /// Tries to load a dataset from the given path. Returns true if successful.
 bool LoadDataset(
     const char* path,

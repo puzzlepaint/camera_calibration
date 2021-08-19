@@ -45,6 +45,7 @@
 #include "camera_calibration/models/central_radial.h"
 #include "camera_calibration/models/central_thin_prism_fisheye.h"
 #include "camera_calibration/models/noncentral_generic.h"
+#include "camera_calibration/feature_detection/feature_detector_tagged_pattern.h"
 
 namespace vis {
 
@@ -134,6 +135,124 @@ bool SaveDataset(const char* path, const Dataset& dataset) {
   return true;
 }
 
+std::string strip_slashes(std::string const& src) {
+    std::string result;
+    for (char c : src) {
+        if (c == '/') {
+            result += '-';
+        }
+        else {
+            result += c;
+        }
+    }
+    return result;
+}
+
+bool SaveDatasetAndState(const char* path, const Dataset& dataset, const BAState& state) {
+  QFileInfo(path).dir().mkpath(".");
+
+  FILE* file = fopen(path, "wb");
+  if (!file) {
+    return false;
+  }
+
+  // File format identifier
+  u8 header[10];
+  header[0] = 'c';
+  header[1] = 'a';
+  header[2] = 'l';
+  header[3] = 'i';
+  header[4] = 'b';
+  header[5] = '_';
+  header[6] = 'd';
+  header[7] = 'a';
+  header[8] = 't';
+  header[9] = 'a';
+  fwrite(header, 1, 10, file);
+
+  // File format version
+  const u32 version = 0;
+  write_one(&version, file);
+
+  // Cameras
+  u32 num_cameras = dataset.num_cameras();
+  write_one(&num_cameras, file);
+  for (int camera_index = 0; camera_index < dataset.num_cameras(); ++ camera_index) {
+    const Vec2i& image_size = dataset.GetImageSize(camera_index);
+    u32 width = image_size.x();
+    write_one(&width, file);
+    u32 height = image_size.y();
+    write_one(&height, file);
+  }
+
+  // Imagesets
+  u32 num_imagesets = dataset.ImagesetCount();
+  write_one(&num_imagesets, file);
+  for (int imageset_index = 0; imageset_index < dataset.ImagesetCount(); ++ imageset_index) {
+    shared_ptr<const Imageset> imageset = dataset.GetImageset(imageset_index);
+
+    const string& filename = imageset->GetFilename();
+    u32 filename_len = filename.size();
+    write_one(&filename_len, file);
+    fwrite(filename.data(), 1, filename_len, file);
+
+    for (int camera_index = 0; camera_index < dataset.num_cameras(); ++ camera_index) {
+      const vector<PointFeature>& features = imageset->FeaturesOfCamera(camera_index);
+
+      const SE3d& image_tr_global = state.camera_tr_rig[camera_index] * state.rig_tr_global[imageset_index];
+      Quaterniond image_q_global = image_tr_global.unit_quaternion();
+      Mat3d image_r_global = image_tr_global.rotationMatrix().cast<double>();
+      const Vec3d& image_t_global = image_tr_global.translation();
+
+      std::string const points_filename = std::string(path) + "-" + strip_slashes(filename) + "-" + std::to_string(camera_index) + ".yaml";
+      std::ofstream points_file(points_filename);
+      points_file << "%YAML:1.0" << std::endl
+                  << "---" << std::endl
+                  << "correspondences:" << std::endl;
+
+      LOG(INFO) << "Saving points at " << points_filename;
+
+      u32 num_features = features.size();
+      write_one(&num_features, file);
+      for (const PointFeature& feature : features) {
+        write_one(&feature.xy.x(), file);
+        write_one(&feature.xy.y(), file);
+        i32 id_32bit = feature.id;
+        write_one(&id_32bit, file);
+
+        const Vec3d& point = state.points[feature.index];
+        Vec3d local_point = image_r_global * point + image_t_global;
+        points_file << "   -" << std::endl
+                    << "      id: " << feature.id << std::endl
+                    << "      point: [" << local_point[0] << ", " << local_point[1] << ", " << local_point[1] << "]" << std::endl;
+      }
+    }
+  }
+
+  // Known geometries
+  u32 num_known_geometries = dataset.KnownGeometriesCount();
+  write_one(&num_known_geometries, file);
+  for (int geometry_index = 0; geometry_index < dataset.KnownGeometriesCount(); ++ geometry_index) {
+    const KnownGeometry& geometry = dataset.GetKnownGeometry(geometry_index);
+
+    write_one(&geometry.cell_length_in_meters, file);
+
+    u32 feature_id_to_position_size = geometry.feature_id_to_position.size();
+    write_one(&feature_id_to_position_size, file);
+    for (const std::pair<int, Vec2i>& item : geometry.feature_id_to_position) {
+      i32 id_32bit = item.first;
+      write_one(&id_32bit, file);
+      i32 x_32bit = item.second.x();
+      write_one(&x_32bit, file);
+      i32 y_32bit = item.second.y();
+      write_one(&y_32bit, file);
+    }
+  }
+
+  fclose(file);
+  return true;
+}
+
 bool LoadDataset(const char* path, Dataset* dataset) {
   FILE* file = fopen(path, "rb");
   if (!file) {
@@ -173,6 +292,7 @@ bool LoadDataset(const char* path, Dataset* dataset) {
   // Cameras
   u32 num_cameras;
   read_one(&num_cameras, file);
+  LOG(INFO) << "Number of cameras: " << num_cameras;
   dataset->Reset(num_cameras);
   for (int camera_index = 0; camera_index < num_cameras; ++ camera_index) {
     u32 width;
@@ -180,12 +300,14 @@ bool LoadDataset(const char* path, Dataset* dataset) {
     u32 height;
     read_one(&height, file);
     dataset->SetImageSize(camera_index, Vec2i(width, height));
+    LOG(INFO) << "Width and height of camera #: " << camera_index << " " << width << ", " << height;
   }
   
   // Imagesets
   u32 num_imagesets;
   u32 total_num_features = 0;
   read_one(&num_imagesets, file);
+  LOG(INFO) << "Number of imagesets: " << num_imagesets;
   for (int imageset_index = 0; imageset_index < num_imagesets; ++ imageset_index) {
     shared_ptr<Imageset> new_imageset = dataset->NewImageset();
     
@@ -214,6 +336,7 @@ bool LoadDataset(const char* path, Dataset* dataset) {
         read_one(&id_32bit, file);
         feature.id = id_32bit;
       }
+      LOG(INFO) << "Number of features in image: " << filename << ": " << num_features;
     }
   }
   
@@ -221,6 +344,7 @@ bool LoadDataset(const char* path, Dataset* dataset) {
   u32 num_known_geometries;
   read_one(&num_known_geometries, file);
   dataset->SetKnownGeometriesCount(num_known_geometries);
+  LOG(INFO) << "Number of known geometries: " << num_known_geometries;
   for (u32 geometry_index = 0; geometry_index < num_known_geometries; ++ geometry_index) {
     KnownGeometry& geometry = dataset->GetKnownGeometry(geometry_index);
     
@@ -915,7 +1039,19 @@ bool SavePointsAndIndexMapping(
     stream << "  - feature_id: " << item.first << std::endl;
     stream << "    point_index: " << item.second << std::endl;
   }
-  
+
+  unordered_map<int, Vec2i>* feature_id_to_coord;
+  /*
+  FeatureDetectorTaggedPattern().GetCorners(
+       0,
+              & feature_id_to_coord);
+    //*/
+
+  for (const auto& item : calibration.feature_id_to_points_index) {
+    stream << "  - feature_id: " << item.first << std::endl;
+    stream << "    point_index: " << item.second << std::endl;
+  }
+
   stream.close();
   
   // TODO: Should be in a separate function.

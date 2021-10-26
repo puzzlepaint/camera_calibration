@@ -796,8 +796,7 @@ bool SavePoses(
   }
   stream << std::setprecision(14);
   
-  // TODO: This comment is not appropriate for all uses of this function.
-  stream << "# Each pose gives the image_tr_pattern transformation (i.e., pattern to image with right-multiplication). Quaternions are written as used by the Eigen library." << std::endl;
+  stream << "# Each pose gives the B_tr_A transformation (i.e., A to B with right-multiplication), where the spaces A and B are defined by the filename. Quaternions are written as used by the Eigen library." << std::endl;
   
   stream << "pose_count: " << image_used.size() << std::endl;
   stream << "poses:" << std::endl;

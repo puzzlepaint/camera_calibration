@@ -287,11 +287,9 @@ void FeatureDetectorTaggedPattern::DetectFeatures(
     }
   }
   
-  // Detect AprilTags in the image. Downscale the image if it is too large,
-  // since tag detection should not require high resolution.
-  // TODO: Is the downsampling really useful?
+  // Detect AprilTags in the image.
   Timer apriltag_timer("AprilTag detection");
-  constexpr int kMaxSideLengthForTagDetection = 1280;
+  constexpr int kMaxSideLengthForTagDetection = 99999;  // downscaling disabled for now
   Image<u8>* tag_image = &gray_image;
   shared_ptr<Image<u8>> downscaled_image;
   shared_ptr<Image<u8>> downscaled_image_2;

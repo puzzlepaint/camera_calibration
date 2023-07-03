@@ -40,7 +40,9 @@
 namespace vis {
 
 template <int block_width>
-__global__ void TransformSamplesToPatternSpaceKernel(
+__global__ void
+__launch_bounds__(/*maxThreadsPerBlock*/ 1024, /*minBlocksPerMultiprocessor*/ 1)
+TransformSamplesToPatternSpaceKernel(
     int num_samples,
     CUDABuffer_<float2> sample_positions,
     float window_half_size,

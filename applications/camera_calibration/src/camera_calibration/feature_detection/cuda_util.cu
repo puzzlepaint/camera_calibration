@@ -40,7 +40,9 @@
 namespace vis {
 
 template <int block_width, int block_height>
-__global__ void ComputeGradientImageCUDAKernel(
+__global__ void
+__launch_bounds__(/*maxThreadsPerBlock*/ 32 * 32, /*minBlocksPerMultiprocessor*/ 1)
+ComputeGradientImageCUDAKernel(
     CUDABuffer_<u8> image,
     int width,
     int height,

@@ -107,7 +107,9 @@ __forceinline__ __device__ float PatternIntensityAt(float x, float y, int num_st
   return (static_cast<int>(num_star_segments * angle / (2 * M_PI)) % 2 == 0) ? 1.f : 0.f;
 }
 
-__global__ void RefineFeatureByMatchingKernel_RenderSamples(
+__global__ void
+__launch_bounds__(/*maxThreadsPerBlock*/ 1024, /*minBlocksPerMultiprocessor*/ 1)
+RefineFeatureByMatchingKernel_RenderSamples(
     int num_star_segments,
     int num_samples,
     CUDABuffer_<float2> samples,
@@ -181,7 +183,9 @@ void CallRefineFeatureByMatchingKernel_RenderSamples(
 
 
 template <int block_width>
-__global__ void RefineFeatureByMatchingKernel_InitFactorAndBias(
+__global__ void
+__launch_bounds__(/*maxThreadsPerBlock*/ 1024, /*minBlocksPerMultiprocessor*/ 1)
+RefineFeatureByMatchingKernel_InitFactorAndBias(
     int num_samples,
     CUDABuffer_<float2> samples,
     CUDABuffer_<float> rendered_samples,

@@ -32,9 +32,15 @@
 #include <cuda_runtime.h>
 #include "libvis/logging.h"
 
+// Debug CUDA error check macros (calling cudaDeviceSynchronize() before checking):
 #define CUDA_CHECKED_CALL(cuda_call)                                \
   do {                                                              \
     cudaError error = (cuda_call);                                  \
+    if (cudaSuccess != error) {                                     \
+      LOG(FATAL) << "Cuda Error: " << cudaGetErrorString(error);    \
+    }                                                               \
+    cudaDeviceSynchronize();                                        \
+    error = cudaGetLastError();                                     \
     if (cudaSuccess != error) {                                     \
       LOG(FATAL) << "Cuda Error: " << cudaGetErrorString(error);    \
     }                                                               \
@@ -42,11 +48,29 @@
 
 #define CHECK_CUDA_NO_ERROR()                                       \
   do {                                                              \
+    cudaDeviceSynchronize();                                        \
     cudaError error = cudaGetLastError();                           \
     if (cudaSuccess != error) {                                     \
       LOG(FATAL) << "Cuda Error: " << cudaGetErrorString(error);    \
     }                                                               \
   } while(false)
+
+// Release CUDA error check macros:
+// #define CUDA_CHECKED_CALL(cuda_call)                                
+//   do {                                                              
+//     cudaError error = (cuda_call);                                  
+//     if (cudaSuccess != error) {                                     
+//       LOG(FATAL) << "Cuda Error: " << cudaGetErrorString(error);    
+//     }                                                               
+//   } while(false)
+// 
+// #define CHECK_CUDA_NO_ERROR()                                       
+//   do {                                                              
+//     cudaError error = cudaGetLastError();                           
+//     if (cudaSuccess != error) {                                     
+//       LOG(FATAL) << "Cuda Error: " << cudaGetErrorString(error);    
+//     }                                                               
+//   } while(false)
 
 // Helper for compiling different versions of bool-templated (kernel) functions
 // without duplicating the function calls.

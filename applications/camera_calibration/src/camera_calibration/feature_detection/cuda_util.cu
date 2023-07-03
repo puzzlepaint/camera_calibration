@@ -84,6 +84,7 @@ void ComputeGradientImageCUDA(
       width,
       height,
       *gradmag_image);
+  CHECK_CUDA_NO_ERROR();
 }
 
 }

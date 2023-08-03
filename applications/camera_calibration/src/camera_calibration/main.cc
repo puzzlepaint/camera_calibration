@@ -555,6 +555,7 @@ int LIBVIS_QT_MAIN(int argc, char** argv) {
           dataset_yaml_file << "- camera: \"" << inputs[i]->display_text.toStdString() << "\"" << endl;
           dataset_yaml_file << "  path: \"" << image_record_directories[i].dirName().toStdString() << "\"" << endl;
         }
+        LOG(INFO) << "Wrote dataset YAML file at: " << dataset_yaml_path;
       } else {
         LOG(ERROR) << "Failed to write dataset YAML file at: " << dataset_yaml_path;
       }
@@ -591,7 +592,9 @@ int LIBVIS_QT_MAIN(int argc, char** argv) {
     if (settings_window.SaveDatasetOnExit() || settings_window.show_pattern_clicked()) {
       QDir record_directory = QDir(settings_window.RecordDirectory());
       record_directory.mkpath(".");
-      SaveDataset(record_directory.absoluteFilePath("features.bin").toStdString().c_str(), dataset);
+      std::string const dataset_path = record_directory.absoluteFilePath("features.bin").toStdString();
+      SaveDataset(dataset_path.c_str(), dataset);
+      LOG(INFO) << "Saved dataset at " << dataset_path;
     }
     
     delete main_window;

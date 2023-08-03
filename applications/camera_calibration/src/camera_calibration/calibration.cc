@@ -242,6 +242,7 @@ void RunBundleAdjustment(
       // Save the optimization state
       if (state_output_path) {
         SaveBAState(state_output_path, *state);
+        SaveDatasetAndState(state_output_path, *dataset, *state);
       }
       
       // Beautify all camera orientations
@@ -1115,7 +1116,11 @@ bool Calibrate(
     }
     
     if (dataset_output_path) {
-      SaveDataset(dataset_output_path, *dataset);
+      SaveDatasetAndState(dataset_output_path, *dataset, *state);
+      LOG(INFO) << "Saved dataset at " << dataset_output_path;
+    }
+    else {
+      LOG(INFO) << "Didn't save dataset";
     }
   }
   
@@ -1322,10 +1327,10 @@ void CalibrateBatch(
   
   // Save the resulting calibration.
   if (!state_output_directory.empty()) {
-    SaveBAState(state_output_directory.c_str(), calibration);
+    SaveDatasetAndState(state_output_directory.c_str(), dataset, calibration);
   }
   if (!pruned_dataset_output_path.empty()) {
-    SaveDataset(pruned_dataset_output_path.c_str(), dataset);
+    SaveDatasetAndState(pruned_dataset_output_path.c_str(), dataset, calibration);
   }
   
   // Create the calibration error report.

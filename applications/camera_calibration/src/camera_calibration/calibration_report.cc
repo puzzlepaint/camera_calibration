@@ -48,6 +48,10 @@
 #include "camera_calibration/models/noncentral_generic.h"
 #include "camera_calibration/util.h"
 
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
+
 namespace vis {
 
 using boost::polygon::voronoi_builder;
@@ -352,7 +356,8 @@ double ComputeBiasedness(
 
 
 void CreateVoronoiDiagram(
-    const CameraModel* cam,
+    const int width,
+    const int height,
     const vector<Vec2d>& reprojection_errors,
     const vector<Vec2f>& features,
     float* voronoi_integer_inv_scaling,
@@ -363,8 +368,8 @@ void CreateVoronoiDiagram(
   *voronoi_integer_inv_scaling = 1.f / kVoronoiIntegerScaling;
   v_reprojection_errors->reserve(32000);
   v_points->reserve(32000);
-  Image<u8> v_point_image(kVoronoiIntegerScaling * cam->width(),
-                          kVoronoiIntegerScaling * cam->height());
+  Image<u8> v_point_image(kVoronoiIntegerScaling * width,
+                          kVoronoiIntegerScaling * height);
   v_point_image.SetTo(static_cast<u8>(0));
   
   for (usize i = 0; i < reprojection_errors.size(); ++ i) {
@@ -388,6 +393,25 @@ void CreateVoronoiDiagram(
   //       all the cells (also ones with infinite edges), but it seemed like
   //       it returned broken results in some cases.
   construct_voronoi(v_points->begin(), v_points->end(), vd);
+}
+
+void CreateVoronoiDiagram(
+    const CameraModel * cam,
+    const vector<Vec2d>& reprojection_errors,
+    const vector<Vec2f>& features,
+    float* voronoi_integer_inv_scaling,
+    voronoi_diagram<double>* vd,
+    vector<Vec2f>* v_reprojection_errors,
+    vector<boost::polygon::point_data<i32>>* v_points) {
+  CreateVoronoiDiagram(
+              cam->width(),
+              cam->height(),
+              reprojection_errors,
+              features,
+              voronoi_integer_inv_scaling,
+              vd,
+              v_reprojection_errors,
+              v_points);
 }
 
 void ClipVoronoiEdge(
@@ -476,14 +500,14 @@ void RenderVoronoiTriangle(
   }
 };
 
-template <class ColorComputer>
+template <class ColorComputer, class ResultType>
 void RenderVoronoiDiagram(
     int width, int height,
     float voronoi_integer_inv_scaling,
     const voronoi_diagram<double>& vd,
     const vector<boost::polygon::point_data<i32>>& v_points,
     const ColorComputer& color_computer,
-    Image<Vec3u8>* rendering) {
+    Image<ResultType>* rendering) {
   Image<Vec3f> reprojection_error_direction_rendering(width, height);
   reprojection_error_direction_rendering.SetTo(Vec3f::Zero());
   
@@ -539,7 +563,7 @@ void RenderVoronoiDiagram(
   rendering->SetSize(reprojection_error_direction_rendering.size());
   for (int y = 0; y < rendering->height(); ++ y) {
     for (int x = 0; x < rendering->width(); ++ x) {
-      (*rendering)(x, y) = (reprojection_error_direction_rendering(x, y) + Vec3f::Constant(0.5f)).cwiseMax(Vec3f::Zero()).cwiseMin(Vec3f::Constant(255.99f)).cast<u8>();
+      (*rendering)(x, y) = color_computer.cast(reprojection_error_direction_rendering(x, y));
     }
   }
 }
@@ -553,9 +577,52 @@ struct ReprojectionDirectionColorComputer {
         127 + 127 * cos(dir),
         127);
   }
+  static Vec3u8 cast(Vec3f const& val) {
+      return (val + Vec3f::Constant(0.5f)).cwiseMax(Vec3f::Zero()).cwiseMin(Vec3f::Constant(255.99f)).cast<u8>();
+  }
   
   const vector<Vec2f>& v_reprojection_errors;
 };
+
+struct ReprojectionVectorComputer {
+  Vec3f operator() (int point_index) const {
+    return Vec3f(
+                v_reprojection_errors[point_index].x(),
+                v_reprojection_errors[point_index].y(),
+                0.0);
+  }
+
+  static Vec2f cast(Vec3f const& val) {
+      return Vec2f(val.x(), val.y());
+  }
+
+  const vector<Vec2f>& v_reprojection_errors;
+};
+
+void VisualizeReprojectionErrorDirections(
+    int const width,
+    int const height,
+    float voronoi_integer_inv_scaling,
+    const voronoi_diagram<double>& vd,
+    const vector<Vec2f>& v_reprojection_errors,
+    const vector<boost::polygon::point_data<i32>>& v_points,
+    Image<Vec3u8>* direction_image,
+    Image<Vec2f>* direction_raw) {
+  RenderVoronoiDiagram(
+      width, height,
+      voronoi_integer_inv_scaling,
+      vd,
+      v_points,
+      ReprojectionDirectionColorComputer{v_reprojection_errors},
+      direction_image);
+  RenderVoronoiDiagram(
+      width, height,
+      voronoi_integer_inv_scaling,
+      vd,
+      v_points,
+      ReprojectionVectorComputer{v_reprojection_errors},
+      direction_raw);
+}
 
 void VisualizeReprojectionErrorDirections(
     const CameraModel* cam,
@@ -563,14 +630,17 @@ void VisualizeReprojectionErrorDirections(
     const voronoi_diagram<double>& vd,
     const vector<Vec2f>& v_reprojection_errors,
     const vector<boost::polygon::point_data<i32>>& v_points,
-    Image<Vec3u8>* direction_image) {
-  RenderVoronoiDiagram(
-      cam->width(), cam->height(),
-      voronoi_integer_inv_scaling,
-      vd,
-      v_points,
-      ReprojectionDirectionColorComputer{v_reprojection_errors},
-      direction_image);
+    Image<Vec3u8>* direction_image,
+    Image<Vec2f>* direction_raw) {
+  VisualizeReprojectionErrorDirections(
+    cam->width(),
+    cam->height(),
+    voronoi_integer_inv_scaling,
+    vd,
+    v_reprojection_errors,
+    v_points,
+    direction_image,
+    direction_raw);
 }
 
 struct ReprojectionMagnitudeColorComputer {
@@ -580,10 +650,54 @@ struct ReprojectionMagnitudeColorComputer {
     double factor = std::min(1., reprojection_error.norm() / max_error);
     return Vec3f(255.99f * factor, 255.99f * (1 - factor), 0);
   }
+  static Vec3u8 cast(Vec3f const& val) {
+      return (val + Vec3f::Constant(0.5f)).cwiseMax(Vec3f::Zero()).cwiseMin(Vec3f::Constant(255.99f)).cast<u8>();
+  }
   
   double max_error;
   const vector<Vec2f>& v_reprojection_errors;
 };
+
+struct ReprojectionMagnitudeComputer {
+  Vec3f operator() (int point_index) const {
+    float const length = v_reprojection_errors[point_index].norm();
+    return Vec3f(length, length, length);
+  }
+
+  static float cast(Vec3f const& val) {
+      return val.x();
+  }
+
+  const vector<Vec2f>& v_reprojection_errors;
+};
+
+
+
+void VisualizeReprojectionErrorMagnitudes(
+    int const width,
+    int const height,
+    float voronoi_integer_inv_scaling,
+    const voronoi_diagram<double>& vd,
+    const vector<Vec2f>& v_reprojection_errors,
+    const vector<boost::polygon::point_data<i32>>& v_points,
+    double max_error,
+    Image<Vec3u8>* magnitude_image,
+    Image<float>* raw_image) {
+  RenderVoronoiDiagram(
+      width, height,
+      voronoi_integer_inv_scaling,
+      vd,
+      v_points,
+      ReprojectionMagnitudeColorComputer{max_error, v_reprojection_errors},
+      magnitude_image);
+  RenderVoronoiDiagram(
+      width, height,
+      voronoi_integer_inv_scaling,
+      vd,
+      v_points,
+      ReprojectionMagnitudeComputer{v_reprojection_errors},
+      raw_image);
+}
 
 void VisualizeReprojectionErrorMagnitudes(
     const CameraModel* cam,
@@ -592,14 +706,18 @@ void VisualizeReprojectionErrorMagnitudes(
     const vector<Vec2f>& v_reprojection_errors,
     const vector<boost::polygon::point_data<i32>>& v_points,
     double max_error,
-    Image<Vec3u8>* magnitude_image) {
-  RenderVoronoiDiagram(
-      cam->width(), cam->height(),
-      voronoi_integer_inv_scaling,
-      vd,
-      v_points,
-      ReprojectionMagnitudeColorComputer{max_error, v_reprojection_errors},
-      magnitude_image);
+    Image<Vec3u8>* magnitude_image,
+    Image<float>* raw_image) {
+  VisualizeReprojectionErrorMagnitudes(
+    cam->width(),
+    cam->height(),
+    voronoi_integer_inv_scaling,
+    vd,
+    v_reprojection_errors,
+    v_points,
+    max_error,
+    magnitude_image,
+    raw_image);
 }
 
 
@@ -734,6 +852,42 @@ bool CreateCalibrationReportForCamera(
   ComputeAllReprojectionErrors(
       camera_index, dataset, calibration,
       &reprojection_error_count, &reprojection_error_sum, &reprojection_error_max, &reprojection_errors, &features);
+
+  {
+      namespace rs = rapidjson;
+      rs::Document d;
+      d.SetObject();
+      rs::Document::AllocatorType& allocator = d.GetAllocator();
+      d.AddMember("width", rs::Value().SetInt(cam->width()), allocator);
+      d.AddMember("height", rs::Value().SetInt(cam->height()), allocator);
+
+      d.AddMember("errors", rs::Value().SetArray(), allocator);
+      d.AddMember("features", rs::Value().SetArray(), allocator);
+
+      rs::Value errors_j(rs::kArrayType);
+      for (size_t ii = 0; ii < reprojection_errors.size(); ++ii) {
+          rs::Value err;
+          err.SetArray();
+          err.PushBack(rs::Value().SetDouble(reprojection_errors[ii].x()), allocator);
+          err.PushBack(rs::Value().SetDouble(reprojection_errors[ii].y()), allocator);
+          d["errors"].PushBack(err, allocator);
+
+          rs::Value feat;
+          feat.SetArray();
+          feat.PushBack(rs::Value().SetDouble(features[ii].x()), allocator);
+          feat.PushBack(rs::Value().SetDouble(features[ii].y()), allocator);
+          d["features"].PushBack(feat, allocator);
+      }
+
+      // 3. Stringify the DOM
+      rs::StringBuffer buffer;
+      rs::Writer<rs::StringBuffer> writer(buffer);
+      d.Accept(writer);
+
+      // Output
+      std::ofstream out(string(base_path) + "_reprojection_errors.json");
+      out << buffer.GetString() << std::endl;
+  }
   
   // Visualize the distribution of reprojection errors
   constexpr int kHistResolution = 50;  // resolution of the visualization image
@@ -764,18 +918,22 @@ bool CreateCalibrationReportForCamera(
   
   // Visualize the reprojection error directions
   Image<Vec3u8> error_direction_image;
+  Image<Vec2f> error_direction_raw;
   VisualizeReprojectionErrorDirections(
       cam,
       voronoi_integer_inv_scaling,
       vd,
       v_reprojection_errors,
       v_points,
-      &error_direction_image);
+      &error_direction_image,
+      &error_direction_raw);
   error_direction_image.Write(string(base_path) + "_error_directions.png");
-  
+  error_direction_raw.Write(string(base_path) + "_error_directions.flo");
+
   // Visualize the reprojection error magnitudes
   constexpr double max_error_in_px = 0.5;  // maximum error that can be distinguished in this visualization, in pixels
   Image<Vec3u8> error_magnitude_image;
+  Image<float> error_magnitude_raw;
   VisualizeReprojectionErrorMagnitudes(
       cam,
       voronoi_integer_inv_scaling,
@@ -783,9 +941,11 @@ bool CreateCalibrationReportForCamera(
       v_reprojection_errors,
       v_points,
       max_error_in_px,
-      &error_magnitude_image);
+      &error_magnitude_image,
+      &error_magnitude_raw);
   error_magnitude_image.Write(string(base_path) + "_error_magnitudes.png");
-  
+  error_magnitude_raw.Write(string(base_path) + "_error_magnitudes");
+
   // Compute the biasedness measure
   double biasedness = ComputeBiasedness(cam, reprojection_errors, features);
   
@@ -981,6 +1141,284 @@ bool CreateCalibrationReportForCamera(
     }
   }
   
+  return true;
+}
+
+bool CreateCalibrationReportForData(const char* base_path,
+    const int camera_index,
+    int const width,
+    int const height,
+    const vector<Vec2d> &reprojection_errors,
+    const vector<Vec2f> &features) {
+  // Create the report directory if it does not exist yet
+  QFileInfo(base_path).dir().mkpath(".");
+
+  // Compute all reprojection errors as input for the corresponding visualizations
+  usize reprojection_error_count = reprojection_errors.size();
+  double reprojection_error_sum = 0.;
+  double reprojection_error_max = 0;
+  for (Vec2d const& e : reprojection_errors) {
+    double const length = e.norm();
+    reprojection_error_max = std::max(length, reprojection_error_max);
+    reprojection_error_sum += length;
+  }
+
+  // Visualize the distribution of reprojection errors
+  constexpr int kHistResolution = 50;  // resolution of the visualization image
+  constexpr double kHistExtent = 0.2f;  // visualized reprojection error extent in pixels
+  Image<double> hist_image;
+  ComputeReprojectionErrorHistogram(
+      kHistResolution, kHistExtent, reprojection_errors, &hist_image);
+  double max_hist_entry = 0;
+  for (u32 y = 0; y < hist_image.height(); ++ y) {
+    for (u32 x = 0; x < hist_image.width(); ++ x) {
+      max_hist_entry = std::max(max_hist_entry, hist_image(x, y));
+    }
+  }
+  Image<u8> hist_image_u8(hist_image.width(), hist_image.height());
+  for (u32 y = 0; y < hist_image.height(); ++ y) {
+    for (u32 x = 0; x < hist_image.width(); ++ x) {
+      hist_image_u8(x, y) = hist_image(x, y) * 255.99f / max_hist_entry;
+    }
+  }
+  hist_image_u8.Write(string(base_path) + "_errors_histogram.png");
+
+  // Create a Voronoi diagram of the feature locations for the following visualizations
+  float voronoi_integer_inv_scaling;
+  voronoi_diagram<double> vd;
+  vector<Vec2f> v_reprojection_errors;
+  vector<boost::polygon::point_data<i32>> v_points;
+  CreateVoronoiDiagram(width, height, reprojection_errors, features, &voronoi_integer_inv_scaling, &vd, &v_reprojection_errors, &v_points);
+
+  // Visualize the reprojection error directions
+  Image<Vec3u8> error_direction_image;
+  Image<Vec2f> error_direction_raw;
+  VisualizeReprojectionErrorDirections(
+      width,
+      height,
+      voronoi_integer_inv_scaling,
+      vd,
+      v_reprojection_errors,
+      v_points,
+      &error_direction_image,
+      &error_direction_raw);
+  error_direction_image.Write(string(base_path) + "_error_directions.png");
+  error_direction_raw.Write(string(base_path) + "_error_directions.flo");
+
+  // Visualize the reprojection error magnitudes
+  constexpr double max_error_in_px = 0.5;  // maximum error that can be distinguished in this visualization, in pixels
+  Image<Vec3u8> error_magnitude_image;
+  Image<float> error_magnitude_raw;
+  VisualizeReprojectionErrorMagnitudes(
+      width,
+      height,
+      voronoi_integer_inv_scaling,
+      vd,
+      v_reprojection_errors,
+      v_points,
+      max_error_in_px,
+      &error_magnitude_image,
+      &error_magnitude_raw);
+  error_magnitude_image.Write(string(base_path) + "_error_magnitudes.png");
+  error_magnitude_raw.Write(string(base_path) + "_error_magnitudes");
+
+#if 0
+  // Compute the biasedness measure
+  double biasedness = ComputeBiasedness(cam, reprojection_errors, features);
+
+  // Compute the (approximate) field-of-view
+  double horizontal_fov;
+  double vertical_fov;
+  ComputeApproximateFOV(cam, &horizontal_fov, &vertical_fov);
+
+  // Write the info file
+  int num_localized_images = 0;
+  for (usize i = 0; i < calibration.image_used.size(); ++ i) {
+    if (calibration.image_used[i]) {
+      ++ num_localized_images;
+    }
+  }
+  WriteReportInfoFile(
+      string(base_path) + "_info.txt",
+      cam,
+      horizontal_fov,
+      vertical_fov,
+      dataset.ImagesetCount(),
+      num_localized_images,
+      reprojection_errors,
+      reprojection_error_count,
+      reprojection_error_sum,
+      reprojection_error_max,
+      biasedness,
+      kHistExtent,
+      max_error_in_px);
+
+  // Additional model-specific visualizations
+  if (const CentralGenericModel* cgb_model = dynamic_cast<const CentralGenericModel*>(cam)) {
+    // TODO: Implement this in a generic way for all other grid-based cameras as well
+    Image<Vec3u8> grid_point_image(cam->width(), cam->height());
+    grid_point_image.SetTo(Vec3u8(0, 0, 0));
+
+    for (u32 y = 0; y < cgb_model->grid().height(); ++ y) {
+      for (u32 x = 0; x < cgb_model->grid().width(); ++ x) {
+        Vec2d pixel = cgb_model->GridPointToPixelCornerConv(x, y);
+        int px = pixel.x();
+        int py = pixel.y();
+        if (px >= 0 && py >= 0 && px < grid_point_image.width() && py < grid_point_image.height()) {
+          grid_point_image(px, py) = Vec3u8(255, 255, 255);
+        }
+      }
+    }
+
+    std::ostringstream filename6;
+    filename6 << string(base_path) << "_grid_point_locations.png";
+    grid_point_image.Write(filename6.str());
+  } else if (const NoncentralGenericModel* ngbsp_model = dynamic_cast<const NoncentralGenericModel*>(cam)) {
+    // Find the point that is as close to each of the rays as possible. For
+    // central cameras, this will be the optical center.
+    CenterPointCostFunction center_point_cost;
+    int calibrated_area = (cam->calibration_max_y() - cam->calibration_min_y() + 1) *
+                          (cam->calibration_max_x() - cam->calibration_min_x() + 1);
+    center_point_cost.lines.reserve(calibrated_area);
+    center_point_cost.tangents.reserve(calibrated_area);
+    for (int y = cam->calibration_min_y(); y <= cam->calibration_max_y(); ++ y) {
+      for (int x = cam->calibration_min_x(); x <= cam->calibration_max_x(); ++ x) {
+        Line3d line;
+        if (ngbsp_model->Unproject(x + 0.5f, y + 0.5f, &line)) {
+          center_point_cost.lines.emplace_back(line);
+          center_point_cost.tangents.emplace_back();
+          ComputeTangentsForDirectionOrLine(line.direction(), &center_point_cost.tangents.back());
+        }
+      }
+    }
+
+    Vec3d center = Vec3d::Zero();
+    LMOptimizer<double> optimizer;
+    optimizer.Optimize(
+        &center,
+        center_point_cost,
+        /*max_iteration_count*/ 100,
+        /*max_lm_attempts*/ 10,
+        /*init_lambda*/ -1,
+        /*init_lambda_factor*/ 0.001f,
+        /*print_progress*/ false);
+
+    // Get statistics on the distances between the center and the rays
+    Image<Vec3d> line_offsets(cam->width(), cam->height());
+    line_offsets.SetTo(Vec3d::Constant(numeric_limits<double>::quiet_NaN()));
+
+    double line_distance_sum = 0;
+    usize line_distance_count = 0;
+    double line_distance_max = 0;
+    vector<double> line_distances;
+
+    double max_line_offset_extent = 0;
+
+    for (int y = cam->calibration_min_y(); y <= cam->calibration_max_y(); ++ y) {
+      for (int x = cam->calibration_min_x(); x <= cam->calibration_max_x(); ++ x) {
+        Line3d line;
+        if (ngbsp_model->Unproject(x + 0.5f, y + 0.5f, &line)) {
+          // Find the closest point on the line to the previously determined center point
+          double parameter = line.direction().dot(center - line.origin());
+          Vec3d closest_point_on_line = line.origin() + parameter * line.direction();
+
+          Vec3d line_offset = closest_point_on_line - center;
+          line_offsets(x, y) = line_offset;
+
+          double line_distance = line_offset.norm();
+          line_distance_sum += line_distance;
+          ++ line_distance_count;
+          line_distance_max = std::max(line_distance_max, line_distance);
+          line_distances.push_back(line_distance);
+
+          max_line_offset_extent = std::max(max_line_offset_extent, fabs(line_offset.x()));
+          max_line_offset_extent = std::max(max_line_offset_extent, fabs(line_offset.y()));
+          max_line_offset_extent = std::max(max_line_offset_extent, fabs(line_offset.z()));
+        }
+      }
+    }
+
+    // stream << "line_distance_count : " << line_distance_count << std::endl;
+    // if (!line_distances.empty()) {
+    //   std::sort(line_distances.begin(), line_distances.end());
+    //   stream << "line_distance_median : " << line_distances[line_distances.size() / 2] << std::endl;
+    // }
+    // stream << "line_distance_average : " << (line_distance_sum / line_distance_count) << std::endl;
+    // stream << "line_distance_maximum : " << line_distance_max << std::endl;
+    // stream << "" << std::endl;
+
+    Image<Vec3u8> line_offset_visualization(cam->width(), cam->height());
+    for (int y = 0; y < cam->height(); ++ y) {
+      for (int x = 0; x < cam->width(); ++ x) {
+        const Vec3d& line_offset = line_offsets(x, y);
+        if (line_offset.hasNaN()) {
+          line_offset_visualization(x, y) = Vec3u8(0, 0, 0);
+        } else {
+          line_offset_visualization(x, y) = Vec3u8(
+              127 + 127 * line_offset.x() / max_line_offset_extent,
+              127 + 127 * line_offset.y() / max_line_offset_extent,
+              127 + 127 * line_offset.z() / max_line_offset_extent);
+        }
+      }
+    }
+
+    std::ostringstream filename5;
+    filename5 << string(base_path) << "_line_offsets.png";
+    line_offset_visualization.Write(filename5.str());
+
+    // Output a 3D model of the camera as an .obj file
+    constexpr int kStepForOBJ = 20;
+    ofstream obj_stream(string(base_path) + "_line_visualization.obj", std::ios::out);
+    ofstream obj_stream_cutoff(string(base_path) + "_line_visualization_cutoff.obj", std::ios::out);
+    ofstream obj_stream_origins(string(base_path) + "_line_visualization_origins.obj", std::ios::out);
+    if (!obj_stream || !obj_stream_cutoff || !obj_stream_origins) {
+      return false;
+    }
+    obj_stream << std::setprecision(14);
+    obj_stream_cutoff << std::setprecision(14);
+    obj_stream_origins << std::setprecision(14);
+
+    int visualized_line_count = 0;
+    for (int y = cam->calibration_min_y(); y <= cam->calibration_max_y(); y += kStepForOBJ) {
+      for (int x = cam->calibration_min_x(); x <= cam->calibration_max_x(); x += kStepForOBJ) {
+        Line3d line;
+        if (ngbsp_model->Unproject(x + 0.5f, y + 0.5f, &line)) {
+          // Show the range of the line that is centered on the point on the line
+          // that is closest to the center point defined above, and has a certain
+          // extent in both directions.
+          double parameter = line.direction().dot(center - line.origin());
+          Vec3d closest_point_on_line = line.origin() + parameter * line.direction();
+
+          // Visualized line segments are at least 2 * 10 meters long
+          double visualization_line_half_extent = std::max<double>(10, 10 * (closest_point_on_line - center).norm());
+
+          Vec3d point_a = closest_point_on_line + visualization_line_half_extent * line.direction();
+          obj_stream << "v " << point_a.x() << " " << point_a.y() << " " << point_a.z() << std::endl;
+          Vec3d point_b = closest_point_on_line - visualization_line_half_extent * line.direction();
+          obj_stream << "v " << point_b.x() << " " << point_b.y() << " " << point_b.z() << std::endl;
+
+          obj_stream_cutoff << "v " << point_a.x() << " " << point_a.y() << " " << point_a.z() << std::endl;
+          obj_stream_cutoff << "v " << closest_point_on_line.x() << " " << closest_point_on_line.y() << " " << closest_point_on_line.z() << std::endl;
+
+          obj_stream_origins << "v " << point_a.x() << " " << point_a.y() << " " << point_a.z() << std::endl;
+          obj_stream_origins << "v " << point_b.x() << " " << point_b.y() << " " << point_b.z() << std::endl;
+          obj_stream_origins << "v " << line.origin().x() << " " << line.origin().y() << " " << line.origin().z() << std::endl;
+
+          ++ visualized_line_count;
+        }
+      }
+    }
+
+    int vertex_index = 1;  // vertex indexing starts at 1 in .obj files
+    for (int i = 0; i < visualized_line_count; ++ i) {
+      obj_stream << "l " << vertex_index << " " << (vertex_index + 1) << std::endl;
+      obj_stream_cutoff << "l " << vertex_index << " " << (vertex_index + 1) << std::endl;
+      obj_stream_origins << "l " << (3 * (vertex_index / 2) + 1) << " " << (3 * (vertex_index / 2) + 2) << std::endl;
+      vertex_index += 2;
+    }
+  }
+#endif
+
   return true;
 }
 

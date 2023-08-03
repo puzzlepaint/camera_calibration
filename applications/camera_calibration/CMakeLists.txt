@@ -220,7 +220,25 @@ if (CMAKE_CUDA_COMPILER)
   set_target_properties(camera_calibration PROPERTIES
     POSITION_INDEPENDENT_CODE ON
   )
-  
+
+  # Tool for generating visualizations from reprojection error data provided by other software
+  add_executable(report_from_data
+    src/camera_calibration/report_from_data.cc
+  )
+  target_include_directories(report_from_data PRIVATE
+    src
+    third_party/yaml-cpp-0.6.0/include
+  )
+  target_link_libraries(report_from_data PRIVATE
+    camera_calibration_baselib
+    ${Boost_LIBRARIES}
+    yaml-cpp2
+    libvis_external_io
+  )
+  set_target_properties(report_from_data PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+  )
+
   
   # Resource files for unit tests
   ADD_CUSTOM_TARGET(camera_calibration_test_resources ALL

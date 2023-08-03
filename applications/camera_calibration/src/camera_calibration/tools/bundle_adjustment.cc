@@ -203,7 +203,8 @@ int BundleAdjustment(const string& state_directory, const string& model_input_di
     
     // Save the optimization state after each iteration
     SaveBAState(model_output_directory.c_str(), state);
-    
+    SaveDatasetAndState(model_output_directory.c_str(), dataset, state);
+
     // Save the final cost
     std::ofstream cost_stream((boost::filesystem::path(model_output_directory) / "cost.txt").string().c_str(), std::ios::out);
     if (cost_stream) {

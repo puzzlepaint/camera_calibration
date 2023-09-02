@@ -59,8 +59,6 @@ if (CMAKE_CUDA_COMPILER)
   else()
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}")
   endif()
-else()
-  message(FATAL_ERROR "CMake does not find the CUDA SDK, which is required to build this application (even in case CUDA itself will not or cannot be used).")
 endif()
 
 # Cross-platform threading. See:
@@ -354,7 +352,7 @@ if(Qt5Widgets_FOUND)
 endif()
 
 if (CMAKE_CUDA_COMPILER)
-  target_compile_options(libvis PUBLIC -DLIBVIS_HAVE_CUDA)  # TODO: is this used anywhere?
+  target_compile_options(libvis PUBLIC -DLIBVIS_HAVE_CUDA)
 endif()
 
 target_include_directories(libvis
@@ -398,6 +396,12 @@ target_link_libraries(libvis
     png  #_static
     Threads::Threads
 )
+if(CMAKE_CUDA_COMPILER)
+  target_link_libraries(libvis
+    PUBLIC
+      ${CUDA_cusolver_LIBRARY}
+  )
+endif()
 if(VULKAN_FOUND)
   target_link_libraries(libvis PRIVATE
     vulkan
@@ -473,6 +477,7 @@ if (CMAKE_CUDA_COMPILER)
   )
   target_link_libraries(libvis_cuda PUBLIC
     libvis
+    CUDA::cublas
   )
   target_compile_options(libvis_cuda PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:-use_fast_math>
@@ -493,14 +498,12 @@ if (CMAKE_CUDA_COMPILER)
     gtest_main
     Threads::Threads
     libvis_cuda
-    CUDA::cublas  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
   )
   target_include_directories(libvis_cuda_test PRIVATE
     ${gtest_SOURCE_DIR}/include
     #${gtest_SOURCE_DIR}
     ${OpenCV_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
-    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
   )
   add_test(libvis_cuda_test
     libvis_cuda_test
@@ -533,15 +536,13 @@ set_property(TARGET libvis_test PROPERTY FOLDER "libvis")
 target_link_libraries(libvis_test PRIVATE
   gtest
   Threads::Threads
-  libvis
-  CUDA::cublas  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
+  libvis 
 )
 target_include_directories(libvis_test PRIVATE
   ${gtest_SOURCE_DIR}/include
   #${gtest_SOURCE_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${GLEW_INCLUDE_DIRS}
-  ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}  # TODO: currently required because of lm_optimizer.h. That should not be necessary.
 )
 add_test(libvis_test
   libvis_test

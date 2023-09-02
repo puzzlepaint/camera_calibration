@@ -28,12 +28,17 @@
 
 #include "camera_calibration/models/central_generic.h"
 
-#include <cuda_runtime.h>
+#include "../cuda_shims.h"
+#ifdef LIBVIS_HAVE_CUDA
 #include <libvis/cuda/cuda_buffer.h>
+#endif
 #include <libvis/lm_optimizer.h>
 
 #include "camera_calibration/local_parametrizations/direction_parametrization.h"
+
+#ifdef LIBVIS_HAVE_CUDA
 #include "camera_calibration/models/cuda_central_generic_model.cuh"
+#endif
 
 // Include Jacobians implementation
 #include "camera_calibration/models/central_generic_jacobians.cc"
@@ -621,6 +626,7 @@ Mat3d CentralGenericModel::ChooseNiceCameraOrientation() {
 }
 
 CUDACameraModel* CentralGenericModel::CreateCUDACameraModel() {
+#ifdef LIBVIS_HAVE_CUDA
   CUDACentralGenericModel* result = new CUDACentralGenericModel();
   
   result->m_width = m_width;
@@ -644,6 +650,9 @@ CUDACameraModel* CentralGenericModel::CreateCUDACameraModel() {
   result->m_grid = m_cuda_grid->ToCUDA();
   
   return result;
+#else
+  return nullptr;
+#endif
 }
 
 }
